@@ -35,17 +35,28 @@ def _build_orbits() -> None:
     print(f"orbit artifacts written: {out}")
 
 
-def _verify() -> int:
-    """Re-hash every artifact against its manifest."""
-    from asteria.sources import rocketpy_repo
-
-    rocketpy_repo.verify(paths().rocketpy_checkout)
-    root = paths().rockets_artifacts
+def _verify_dir(label: str, root: Path) -> int:
+    """Re-hash one artifacts directory against its manifest; number of mismatches."""
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
     bad = [rel for rel, digest in manifest["files"].items() if sha256_file(root / rel) != digest]
     for rel in bad:
-        print(f"MISMATCH {rel}", file=sys.stderr)
-    print(f"{len(manifest['files']) - len(bad)}/{len(manifest['files'])} artifacts verified")
+        print(f"MISMATCH {label}/{rel}", file=sys.stderr)
+    total = len(manifest["files"])
+    print(f"{label}: {total - len(bad)}/{total} artifacts verified")
+    return len(bad)
+
+
+def _verify() -> int:
+    """Re-check the pinned source checkout and re-hash every built artifact."""
+    from asteria.sources import rocketpy_repo
+
+    rocketpy_repo.verify(paths().rocketpy_checkout)
+    bad = _verify_dir("rockets", paths().rockets_artifacts)
+    orbits = paths().orbits_artifacts
+    if (orbits / "manifest.json").is_file():
+        bad += _verify_dir("orbits", orbits)
+    else:
+        print("orbits: not built (needs a Space-Track login)")
     return 1 if bad else 0
 
 

@@ -19,3 +19,4 @@ web/.next/
 web/next-env.d.ts
 engine/.env.local
 web/.env.local
+web/tsconfig.tsbuildinfo

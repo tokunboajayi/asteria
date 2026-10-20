@@ -18,7 +18,7 @@ import {
   PolylineDashMaterialProperty,
   Viewer,
 } from "cesium";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { FlightDetail } from "@/lib/api";
 import type { Mode } from "@/lib/flightView";
@@ -52,29 +52,21 @@ export function Globe({ detail, mode, cursor }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const markers = useRef<{ ghost: Entity | null; real: Entity | null }>({ ghost: null, real: null });
+  const [failure, setFailure] = useState<string | null>(null);
 
   // One viewer for the life of the component.
   useEffect(() => {
     if (!container.current) return;
     window.CESIUM_BASE_URL = "/cesium";
     if (ION_TOKEN) Ion.defaultAccessToken = ION_TOKEN;
-    const viewer = new Viewer(container.current, {
-      animation: false,
-      timeline: false,
-      baseLayerPicker: false,
-      geocoder: false,
-      homeButton: false,
-      sceneModePicker: false,
-      navigationHelpButton: false,
-      fullscreenButton: false,
-      infoBox: false,
-      selectionIndicator: false,
-      requestRenderMode: true,
-      terrainProvider: new EllipsoidTerrainProvider(),
-      baseLayer: ION_TOKEN
-        ? ImageryLayer.fromWorldImagery({})
-        : new ImageryLayer(new OpenStreetMapImageryProvider({ url: "https://tile.openstreetmap.org/" })),
-    });
+    let viewer: Viewer;
+    try {
+      viewer = createViewer(container.current);
+    } catch (error) {
+      // No WebGL (old GPU, some remote desktops): only the 3D panel degrades, never the console.
+      queueMicrotask(() => setFailure(error instanceof Error ? error.message : String(error)));
+      return;
+    }
     viewer.scene.globe.depthTestAgainstTerrain = false;
     viewerRef.current = viewer;
     if (ION_TOKEN) {
@@ -158,7 +150,34 @@ export function Globe({ detail, mode, cursor }: Props) {
     viewer.scene.requestRender();
   }, [detail, mode, cursor]);
 
+  if (failure) {
+    return (
+      <div className={styles.placeholder} role="status">
+        3D view unavailable in this browser ({failure}). Everything else works.
+      </div>
+    );
+  }
   return <div ref={container} className={styles.globe} />;
+}
+
+function createViewer(element: HTMLElement): Viewer {
+  return new Viewer(element, {
+    animation: false,
+    timeline: false,
+    baseLayerPicker: false,
+    geocoder: false,
+    homeButton: false,
+    sceneModePicker: false,
+    navigationHelpButton: false,
+    fullscreenButton: false,
+    infoBox: false,
+    selectionIndicator: false,
+    requestRenderMode: true,
+    terrainProvider: new EllipsoidTerrainProvider(),
+    baseLayer: ION_TOKEN
+      ? ImageryLayer.fromWorldImagery({})
+      : new ImageryLayer(new OpenStreetMapImageryProvider({ url: "https://tile.openstreetmap.org/" })),
+  });
 }
 
 function place(entity: Entity | null, p: GeoPoint | null) {
