@@ -3,6 +3,7 @@
 import "cesium/Build/Cesium/Widgets/widgets.css";
 
 import {
+  BoundingSphere,
   Cartesian3,
   Color,
   ConstantPositionProperty,
@@ -100,10 +101,11 @@ export function Globe({ detail, mode, cursor }: Props) {
     if (!viewer) return;
     viewer.entities.removeAll();
     const elevation = detail.summary.launch_site.elevation_m;
-    const ghost = viewer.entities.add({
+    const ghostPositions = cartesians(modelPath(detail.ghost, elevation));
+    viewer.entities.add({
       name: "Ghost (physics)",
       polyline: {
-        positions: cartesians(modelPath(detail.ghost, elevation)),
+        positions: ghostPositions,
         width: 2,
         material: new PolylineDashMaterialProperty({ color: GHOST, dashLength: 14 }),
       },
@@ -119,10 +121,11 @@ export function Globe({ detail, mode, cursor }: Props) {
       });
     }
     const track = realTrack(detail);
-    if (track && track.length > 1) {
+    const trackPositions = track && track.length > 1 ? cartesians(track) : [];
+    if (trackPositions.length > 0) {
       viewer.entities.add({
         name: "Real (GNSS + logged altitude)",
-        polyline: { positions: cartesians(track), width: 2.5, material: REAL },
+        polyline: { positions: trackPositions, width: 2.5, material: REAL },
       });
     }
     const modelColor = mode === "corrected" && detail.corrected ? CORRECTED : GHOST;
@@ -130,9 +133,17 @@ export function Globe({ detail, mode, cursor }: Props) {
       ghost: viewer.entities.add({ point: { pixelSize: 9, color: modelColor } }),
       real: track ? viewer.entities.add({ point: { pixelSize: 9, color: REAL } }) : null,
     };
-    viewer
-      .zoomTo(ghost, new HeadingPitchRange(CesiumMath.toRadians(-35), CesiumMath.toRadians(-18), 0))
-      .catch(() => undefined);
+    // Frame every drawn path from a fixed oblique view, far enough to see the whole arc.
+    const sphere = BoundingSphere.fromPoints([...ghostPositions, ...trackPositions]);
+    viewer.camera.flyToBoundingSphere(sphere, {
+      duration: 0,
+      offset: new HeadingPitchRange(
+        CesiumMath.toRadians(-60),
+        CesiumMath.toRadians(-12),
+        // The panel is wide and short, so its vertical field of view is the narrow one (~30°).
+        Math.max(sphere.radius * 4.5, 1500),
+      ),
+    });
     viewer.scene.requestRender();
   }, [detail, mode]);
 

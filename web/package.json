@@ -10,7 +10,7 @@
     "start": "next start --port 3000",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:acceptance": "playwright test -c ../gan-harness/acceptance"
+    "test:acceptance": "node scripts/acceptance.mjs"
   },
   "dependencies": {
     "cesium": "1.146.0",

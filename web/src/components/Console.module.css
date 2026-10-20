@@ -33,7 +33,19 @@
   flex-direction: column;
 }
 
+/* Wide screens: a fixed-height console; each column scrolls on its own, like mission control. */
 @media (min-width: 1280px) {
+  .console {
+    height: 100vh;
+  }
+  .grid {
+    flex-wrap: nowrap;
+  }
+  .left,
+  .center,
+  .right {
+    overflow-y: auto;
+  }
   .left {
     max-width: 360px;
   }

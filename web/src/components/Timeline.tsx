@@ -70,20 +70,15 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
         )}
       </button>
       <div className={styles.track}>
-        <ol className={styles.events}>
+        <div className={styles.ticks} aria-hidden="true">
           {events.map((e) => (
-            <li key={`${e.name}-${e.t}`} style={{ left: `${pct(e.t)}%` }}>
-              <button
-                type="button"
-                className={e.source === "real" ? styles.eventReal : styles.event}
-                title={`${e.detail} · T+${fmtNum(e.t, 2)} s (${e.source})`}
-                onClick={() => onCursor(e.t)}
-              >
-                {e.name}
-              </button>
-            </li>
+            <span
+              key={`${e.name}-${e.t}`}
+              className={e.source === "real" ? styles.tickReal : styles.tick}
+              style={{ left: `${pct(e.t)}%` }}
+            />
           ))}
-        </ol>
+        </div>
         <label htmlFor="met-scrub" className="visually-hidden">
           Mission elapsed time
         </label>
@@ -97,6 +92,20 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
           value={cursor}
           onChange={(e) => onCursor(Number(e.target.value))}
         />
+        <ol className={styles.events} aria-label="Jump to event">
+          {events.map((e) => (
+            <li key={`${e.name}-${e.t}`}>
+              <button
+                type="button"
+                className={e.source === "real" ? styles.eventReal : styles.event}
+                title={`${e.detail} (${e.source})`}
+                onClick={() => onCursor(e.t)}
+              >
+                {e.name} <span className={styles.eventTime}>T+{fmtNum(e.t, 1)}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
       </div>
       <div className={styles.readout}>T+ {fmtNum(cursor, 2)} s</div>
       <div role="group" aria-label="Replay speed" className={styles.speeds}>

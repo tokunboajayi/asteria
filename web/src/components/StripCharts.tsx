@@ -6,6 +6,8 @@ import type { FlightDetail } from "@/lib/api";
 import { clamp, extent, linePath, padded, scale, symmetric, type Domain } from "@/lib/chart";
 import { charts, realOnGhostClock, timelineEvents, type Mode } from "@/lib/flightView";
 import { fmtNum } from "@/lib/format";
+import { assignLanes, monoWidth } from "@/lib/lanes";
+import { useWidth } from "@/lib/useWidth";
 
 import styles from "./StripCharts.module.css";
 
@@ -51,7 +53,7 @@ export function StripCharts({ detail, mode, cursor, span, onCursor }: Props) {
         title="Altitude AGL"
         unit="m"
         lines={altLines}
-        domain={padded(extent(altLines.map((l) => l.v)) ?? { min: 0, max: 1 })}
+        data={extent(altLines.map((l) => l.v))}
         x={x}
         cursor={cursor}
         span={span}
@@ -67,7 +69,7 @@ export function StripCharts({ detail, mode, cursor, span, onCursor }: Props) {
           { t: c.t, v: c.ghostVz, kind: "ghost" },
           { t: rt, v: realVz, kind: "real" },
         ]}
-        domain={padded(extent([c.ghostVz, realVz]) ?? { min: 0, max: 1 })}
+        data={extent([c.ghostVz, realVz])}
         x={x}
         cursor={cursor}
         span={span}
@@ -84,7 +86,8 @@ export function StripCharts({ detail, mode, cursor, span, onCursor }: Props) {
           { t: [span.start, span.end], v: [0, 0], kind: "zero" },
           { t: c.t, v: c.residual, kind: "gap" },
         ]}
-        domain={symmetric(extent([c.residual]) ?? { min: -1, max: 1 })}
+        data={extent([c.residual])}
+        symmetricAroundZero
         x={x}
         cursor={cursor}
         span={span}
@@ -102,7 +105,9 @@ interface ChartProps {
   subtitle?: string;
   testId?: string;
   lines: Line[];
-  domain: Domain;
+  /** Extent of the plotted data; the axis labels show this, never the padding. */
+  data: Domain | null;
+  symmetricAroundZero?: boolean;
   x: (t: number) => number;
   cursor: number;
   span: { start: number; end: number };
@@ -114,7 +119,19 @@ interface ChartProps {
 
 function Chart(p: ChartProps) {
   const ref = useRef<SVGSVGElement>(null);
-  const y = scale(p.domain, H - 4, 4);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const width = useWidth(plotRef);
+  const fallback = { min: 0, max: 1 };
+  const domain = p.symmetricAroundZero ? symmetric(p.data ?? fallback) : padded(p.data ?? fallback);
+  const y = scale(domain, H - 4, 4);
+  const names = p.showEventNames
+    ? assignLanes(
+        p.events,
+        (ev) => (p.x(ev.t) / W) * width,
+        (ev) => monoWidth(ev.name, 9) + 6,
+        2,
+      )
+    : [];
   const toTime = (clientX: number) => {
     const box = ref.current?.getBoundingClientRect();
     if (!box || box.width === 0) return p.cursor;
@@ -128,11 +145,11 @@ function Chart(p: ChartProps) {
         <div className="label">{p.title}</div>
         <div className={styles.unit}>{p.unit}</div>
         <div className={styles.ticks}>
-          <span>{fmtNum(p.domain.max, 0)}</span>
-          <span>{fmtNum(p.domain.min, 0)}</span>
+          <span>{p.data ? fmtNum(p.data.max, 0) : "—"}</span>
+          <span>{p.data ? fmtNum(p.data.min, 0) : "—"}</span>
         </div>
       </div>
-      <div className={styles.plot}>
+      <div className={styles.plot} ref={plotRef}>
         {p.subtitle && (
           <div className={styles.subtitle} data-testid={p.testId}>
             {p.subtitle}
@@ -174,12 +191,12 @@ function Chart(p: ChartProps) {
           ))}
           <line x1={cx} x2={cx} y1={0} y2={H} className={styles.cursor} vectorEffect="non-scaling-stroke" />
         </svg>
-        {p.showEventNames && (
+        {names.length > 0 && (
           <div className={styles.eventNames} aria-hidden="true">
-            {p.events.map((ev) => (
+            {names.map(({ item: ev, lane }) => (
               <span
                 key={`${ev.name}-${ev.t}`}
-                style={{ left: `${(p.x(ev.t) / W) * 100}%` }}
+                style={{ left: `${(p.x(ev.t) / W) * 100}%`, bottom: `${2 + lane * 12}px` }}
                 className={ev.source === "real" ? styles.eventReal : undefined}
               >
                 {ev.name}

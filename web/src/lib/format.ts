@@ -10,17 +10,25 @@ export function fmtM(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
 
+/** Round to the displayed precision first, so a value that shows as zero never carries a sign. */
+function shown(value: number, digits: number): number {
+  const r = Number(value.toFixed(digits));
+  return Object.is(r, -0) ? 0 : r;
+}
+
 export function fmtNum(value: number | null | undefined, digits: number): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  const text = intl(digits).format(Math.abs(value));
-  return value < 0 ? MINUS + text : text;
+  const v = shown(value, digits);
+  const text = intl(digits).format(Math.abs(v));
+  return v < 0 ? MINUS + text : text;
 }
 
 export function fmtSigned(value: number | null | undefined, digits: number): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  const text = intl(digits).format(Math.abs(value));
-  if (value > 0) return `+${text}`;
-  if (value < 0) return MINUS + text;
+  const v = shown(value, digits);
+  const text = intl(digits).format(Math.abs(v));
+  if (v > 0) return `+${text}`;
+  if (v < 0) return MINUS + text;
   return text;
 }
 

@@ -27,29 +27,42 @@
   gap: 4px;
 }
 
-.events {
+.ticks {
   position: relative;
-  height: 26px;
-  margin: 0;
+  height: 8px;
+}
+
+.tick,
+.tickReal {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 8px;
+  background: var(--text-label);
+}
+
+.tickReal {
+  background: var(--real);
+}
+
+.events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.events li {
-  position: absolute;
-  top: 0;
-  transform: translateX(-2px);
-}
-
 .event,
 .eventReal {
-  min-height: 24px;
-  padding: 0 4px;
-  border: 0;
-  border-left: 1px solid #2a313c;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #2a313c;
+  border-radius: 4px;
   background: transparent;
   font: 500 10px var(--font-mono);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-dim);
   white-space: nowrap;
@@ -58,7 +71,12 @@
 
 .eventReal {
   color: var(--real);
-  border-left-color: var(--real);
+  border-color: var(--real);
+}
+
+.eventTime {
+  color: var(--text-label);
+  text-transform: none;
 }
 
 .range {
