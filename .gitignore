@@ -1,0 +1,16 @@
+.asteria/
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+node_modules/
+.next/
+web/public/cesium/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+*.log

@@ -1,0 +1,217 @@
+"""API acceptance tests for Asteria.
+
+Run against a live API:  API_URL=http://127.0.0.1:8000 \
+    ASTERIA_SOURCE_DIR=<pinned RocketPy checkout> pytest gan-harness/acceptance
+
+These tests deliberately do not import the engine. Anything they check
+against the published sources is recomputed here, independently, from the
+raw files.
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import os
+import re
+import statistics
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+
+API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000").rstrip("/")
+SOURCE_DIR = Path(os.environ.get("ASTERIA_SOURCE_DIR", ""))
+PINNED_COMMIT = "9bd6ad3af8f97bafa3201d4e70eba2877e66e040"
+SHA256 = re.compile(r"^[0-9a-f]{64}$")
+NUMBER = re.compile(r"[-−+]?\d[\d,]*(?:\.\d+)?")
+FT_TO_M = 0.3048
+
+
+@pytest.fixture(scope="session")
+def client() -> httpx.Client:
+    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+        yield c
+
+
+@pytest.fixture(scope="session")
+def fleet(client: httpx.Client) -> dict[str, Any]:
+    r = client.get("/api/rockets/fleet")
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+@pytest.fixture(scope="session")
+def details(client: httpx.Client, fleet: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    out = {}
+    for f in fleet["flights"]:
+        r = client.get(f"/api/rockets/flights/{f['id']}")
+        assert r.status_code == 200, r.text
+        out[f["id"]] = r.json()
+    return out
+
+
+# 1 ------------------------------------------------------------------------
+def test_health_and_fleet_size(client: httpx.Client, fleet: dict[str, Any]) -> None:
+    r = client.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["rocket_flights"] == len(fleet["flights"])
+    assert len(fleet["flights"]) >= 8, "expected at least 8 real flights in the fleet"
+    ids = [f["id"] for f in fleet["flights"]]
+    assert len(ids) == len(set(ids)), "flight ids must be unique"
+
+
+# 2 ------------------------------------------------------------------------
+def test_provenance_is_pinned_and_hashed(fleet: dict[str, Any], details: dict[str, dict[str, Any]]) -> None:
+    assert fleet["provenance"]["commit"] == PINNED_COMMIT
+    for fid, d in details.items():
+        files = d["provenance"]["files"]
+        assert files, f"{fid}: no source files recorded"
+        for entry in files:
+            assert SHA256.match(entry["sha256"]), f"{fid}: bad sha256 for {entry['path']}"
+            if SOURCE_DIR.is_dir():
+                import hashlib
+
+                actual = hashlib.sha256((SOURCE_DIR / entry["path"]).read_bytes()).hexdigest()
+                assert actual == entry["sha256"], f"{fid}: hash mismatch for {entry['path']}"
+
+
+# 3 ------------------------------------------------------------------------
+def _read_raw_altitude_max(
+    path: Path, time_column: str, column: str, unit: str, delimiter: str, keep_until: float | None
+) -> float:
+    with path.open(newline="", encoding="utf-8-sig") as fh:
+        reader = csv.reader(fh, delimiter=delimiter)
+        header = next(reader)
+        ti, ai = header.index(time_column), header.index(column)
+        values = []
+        for row in reader:
+            try:
+                t, a = float(row[ti]), float(row[ai])
+            except (IndexError, ValueError):
+                continue
+            if keep_until is not None and t > keep_until:
+                continue
+            values.append(a)
+    assert values, f"no numeric values in {path}:{column}"
+    peak = max(values)
+    if unit == "ft":
+        return peak * FT_TO_M
+    assert unit == "m", f"unexpected unit {unit}"
+    return peak
+
+
+@pytest.mark.skipif(not SOURCE_DIR.is_dir(), reason="ASTERIA_SOURCE_DIR not set")
+def test_real_apogee_matches_raw_published_log(details: dict[str, dict[str, Any]]) -> None:
+    for fid, d in details.items():
+        raw = d["real"]["raw_source"]
+        if raw["keep_until_s"] is not None:
+            assert raw["keep_until_reason"], f"{fid}: cutoff without a written reason"
+        expected = _read_raw_altitude_max(
+            SOURCE_DIR / raw["path"],
+            raw["time_column"],
+            raw["altitude_column"],
+            raw["altitude_unit"],
+            raw["delimiter"],
+            raw["keep_until_s"],
+        )
+        assert d["summary"]["apogee"]["real_m"] == pytest.approx(expected, abs=0.01), fid
+
+
+# 4 ------------------------------------------------------------------------
+def test_delta_only_on_overlap_and_equals_real_minus_ghost(details: dict[str, dict[str, Any]]) -> None:
+    for fid, d in details.items():
+        t = d["delta"]["t"]
+        dz = d["delta"]["altitude"]
+        ghost_z = d["delta"]["ghost_altitude"]
+        real_z = d["delta"]["real_altitude"]
+        shift = d["delta"]["real_time_shift_s"]
+        t_real = d["real"]["t"]
+        lo, hi = min(t_real) + shift, max(t_real) + shift
+        assert len(t) == len(dz) == len(ghost_z) == len(real_z)
+        for ti, di, gi, ri in zip(t, dz, ghost_z, real_z):
+            if ti < lo or ti > hi:
+                assert di is None and ri is None, f"{fid}: delta extrapolated at t={ti}"
+            elif di is not None:
+                assert di == pytest.approx(ri - gi, abs=1e-6), f"{fid}: delta != real-ghost at t={ti}"
+
+
+# 5 ------------------------------------------------------------------------
+@pytest.mark.skipif(not SOURCE_DIR.is_dir(), reason="ASTERIA_SOURCE_DIR not set")
+def test_team_prediction_quoted_verbatim_from_notebook(details: dict[str, dict[str, Any]]) -> None:
+    checked = 0
+    for fid, d in details.items():
+        tp = d["summary"]["team_prediction"]
+        if tp is None:
+            continue
+        nb = json.loads((SOURCE_DIR / d["provenance"]["notebook"]).read_text(encoding="utf-8"))
+        text = "\n".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
+        assert tp["quote"] in text, f"{fid}: team prediction quote not found in notebook"
+        assert NUMBER.search(tp["quote"].replace(",", "")), f"{fid}: quote carries no number"
+        # Only an explicitly pre-flight number may be called the team's prediction;
+        # several notebooks list RocketPy's own post-flight result as "Simulated apogee".
+        assert re.search(r"before flight|last simulated", tp["quote"], re.IGNORECASE), (
+            f"{fid}: quote is not explicitly a pre-flight prediction: {tp['quote']!r}"
+        )
+        checked += 1
+    assert checked >= 3, "expected pre-flight team predictions for at least 3 flights"
+
+
+# 6 ------------------------------------------------------------------------
+def test_correction_is_leave_one_flight_out(client: httpx.Client) -> None:
+    r = client.get("/api/rockets/correction")
+    assert r.status_code == 200
+    rep = r.json()
+    lo, hi = rep["clip"]
+    per = {p["id"]: p for p in rep["per_flight"]}
+    assert len(per) >= 8
+    for fid, p in per.items():
+        others = [q["k_own"] for qid, q in per.items() if qid != fid]
+        expected = min(max(statistics.median(others), lo), hi)
+        assert p["k_hat"] == pytest.approx(expected, abs=1e-9), f"{fid}: k_hat is not the held-out median"
+    agg = rep["aggregate"]
+    before = statistics.median(abs(p["err_before_pct"]) for p in per.values())
+    after = statistics.median(abs(p["err_after_pct"]) for p in per.values())
+    assert agg["median_abs_err_before_pct"] == pytest.approx(before, abs=1e-9)
+    assert agg["median_abs_err_after_pct"] == pytest.approx(after, abs=1e-9)
+
+
+# 7 ------------------------------------------------------------------------
+def test_gap_map_marks_uncharted_cells(client: httpx.Client) -> None:
+    r = client.get("/api/rockets/gapmap")
+    assert r.status_code == 200
+    gm = r.json()
+    total = 0
+    uncharted = 0
+    for c in gm["cells"]:
+        total += c["n_samples"]
+        if c["n_flights"] < gm["min_flights"]:
+            assert c["charted"] is False and c["mean"] is None, c
+            uncharted += 1
+        else:
+            assert c["charted"] is True and c["mean"] is not None, c
+    assert total == gm["total_samples"]
+    assert uncharted > 0, "a real fleet should leave part of the envelope uncharted"
+
+
+# 8 ------------------------------------------------------------------------
+def test_debrief_numbers_all_come_from_cited_facts(client: httpx.Client, fleet: dict[str, Any]) -> None:
+    for f in fleet["flights"]:
+        r = client.get(f"/api/rockets/flights/{f['id']}/debrief")
+        assert r.status_code == 200
+        db = r.json()
+        facts = {fa["id"]: fa for fa in db["facts"]}
+        assert db["sentences"], f"{f['id']}: empty debrief"
+        assert db["validation"]["passed"] is True
+        for s in db["sentences"]:
+            assert s["fact_ids"], f"{f['id']}: sentence without citation: {s['text']}"
+            allowed = set()
+            for fid in s["fact_ids"]:
+                assert fid in facts, f"{f['id']}: cites missing fact {fid}"
+                allowed.update(NUMBER.findall(facts[fid]["display"]))
+                allowed.update(NUMBER.findall(facts[fid]["label"]))
+            for num in NUMBER.findall(s["text"]):
+                assert num in allowed, f"{f['id']}: number {num!r} not in cited facts: {s['text']}"

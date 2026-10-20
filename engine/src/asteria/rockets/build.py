@@ -1,0 +1,460 @@
+"""Build the Rockets artifacts: one JSON per flight plus fleet-level analyses.
+
+Pass 1 (one process per flight): run the notebook, sample the ghost, load
+the real log, cross-check it, align, compute Δ, calibrate k_own.
+Pass 2 (in this process): held-out k̂ for every flight.
+Pass 3 (one process per flight): full re-simulation at k̂ = corrected ghost.
+Then the gap map, Next Best Flight, debriefs and the manifest.
+
+Integrity gates that stop the build (they never downgrade to a warning):
+* the source checkout is not the pinned commit;
+* re-simulating at k = 1 does not reproduce the notebook's apogee;
+* Asteria's loader disagrees with the notebook's own importer;
+* a log's peak differs from the official apogee by more than 10 %;
+* a quote is not found verbatim in the notebook.
+"""
+
+from __future__ import annotations
+
+import json
+import multiprocessing as mp
+import re
+import shutil
+import sys
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from importlib.metadata import version
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from asteria import __version__
+from asteria.config import ROCKETPY_COMMIT, ROCKETPY_REPO_URL, ROCKETPY_TAG
+from asteria.core import gapmap, nextbest
+from asteria.models import (
+    ApogeeSummary,
+    CorrectionRow,
+    CorrectionSummary,
+    DeltaSeries,
+    Diagnostics,
+    Event,
+    Excluded,
+    Fleet,
+    FleetProvenance,
+    FlightDetail,
+    FlightSummary,
+    GhostSeries,
+    LaunchSite,
+    Model,
+    Provenance,
+    Quote,
+    RealSeries,
+    SourceFile,
+)
+from asteria.provenance import sha256_file, source_file
+from asteria.rockets import catalog, correction, debrief, ghost, notebook, real, telemetry
+
+OFFICIAL_TOLERANCE = 0.10
+TRANSONIC_CAVEAT = (
+    "Barometric altimeters can misread near the speed of sound, so gaps in transonic cells "
+    "may include sensor error as well as physics error."
+)
+DERIVED_VZ_NOTE = (
+    "Real vertical velocity is derived from each log's altitude with the same fixed filter "
+    "(Savitzky–Golay, 1.0 s window, 2nd order), so every flight is measured the same way."
+)
+MACH_EDGES = gapmap.edges(0.0, 1.6, 0.1)
+ALT_EDGES = gapmap.edges(0.0, 4000.0, 250.0)
+_DATA_REF = re.compile(r"""["'](\.\./\.\./data/[^"']+)["']""")
+
+
+class IntegrityError(RuntimeError):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Pass 1
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Pass1:
+    spec_id: str
+    ghost: GhostSeries
+    ghost_apogee_m: float
+    ghost_apogee_time_s: float
+    max_mach: float
+    events: list[Event]
+    real: RealSeries
+    real_apogee_m: float
+    real_apogee_time_s: float
+    delta: DeltaSeries
+    diagnostics: Diagnostics
+    gap: gapmap.FlightSamples | None
+    reach: gapmap.FlightSamples
+    peak_dvz: tuple[float, float, float] | None  # (Δvz, ghost Mach, ghost altitude)
+    k_own: float
+    k_bracketed: bool
+    launch_site: LaunchSite
+    files: list[SourceFile]
+    team_prediction: Quote | None
+    official: Quote | None
+    rocketpy_version: str
+    cell_seconds: float
+
+
+def _quote(markdown: str, text: str | None, flight_id: str) -> Quote | None:
+    if text is None:
+        return None
+    if text not in markdown:
+        raise IntegrityError(f"{flight_id}: quote not found verbatim in notebook: {text!r}")
+    return Quote(value_m=catalog.metres_in_quote(text), quote=text)
+
+
+def _cross_check(checkout: Path, spec: catalog.FlightSpec, run: notebook.NotebookRun) -> str:
+    """Asteria's raw parse (no cutoff, no unit change) must equal the importer's arrays."""
+    if spec.importer_var is None:
+        return "no-importer"
+    importer = run.get(spec.importer_var)
+    source = np.asarray(importer.altitude.source, dtype=np.float64)
+    raw = telemetry.load_log(
+        checkout,
+        telemetry.LogSpec(
+            path=spec.log.path,
+            time_column=spec.log.time_column,
+            altitude_column=spec.log.altitude_column,
+            altitude_unit="m",
+            delimiter=spec.log.delimiter,
+        ),
+    )
+    ours = np.column_stack((raw.t, raw.altitude_m))
+    ours = ours[np.argsort(ours[:, 0], kind="stable")]
+    theirs = source[np.argsort(source[:, 0], kind="stable")]
+    if ours.shape != theirs.shape or not np.array_equal(ours, theirs):
+        raise IntegrityError(
+            f"{spec.id}: Asteria's loader disagrees with the notebook importer "
+            f"({ours.shape} vs {theirs.shape})"
+        )
+    return "identical"
+
+
+def _source_files(checkout: Path, spec: catalog.FlightSpec) -> list[SourceFile]:
+    nb_dir = (checkout / spec.notebook).parent
+    referenced = set()
+    for _, src in notebook.code_cells(checkout / spec.notebook):
+        for ref in _DATA_REF.findall(src):
+            path = (nb_dir / ref).resolve()
+            if path.is_file():
+                referenced.add(path.relative_to(checkout.resolve()).as_posix())
+    paths = {spec.notebook, spec.log.path, *referenced}
+    if spec.gnss is not None:
+        paths.add(spec.gnss.path)
+    return [source_file(checkout, p) for p in sorted(paths)]
+
+
+def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
+    checkout = Path(checkout_str)
+    spec = catalog.by_id(spec_id)
+    run = notebook.run_notebook(checkout, spec.notebook, spec.skip_cells)
+    flight = run.get(spec.flight_var)
+    kwargs = notebook.flight_init_kwargs(flight)
+    ghost_apogee = ghost.apogee_agl(flight)
+    correction.check_reproduction(kwargs, ghost_apogee)
+
+    g = ghost.sample(flight)
+    events = ghost.events(flight, g)
+    markdown = notebook.markdown_text(checkout / spec.notebook)
+    if spec.title_quote not in markdown:
+        raise IntegrityError(f"{spec.id}: title not found in notebook")
+    team = _quote(markdown, spec.team_prediction_quote, spec.id)
+    official = _quote(markdown, spec.official_apogee_quote, spec.id)
+
+    cross = _cross_check(checkout, spec, run)
+    raw = telemetry.load_log(checkout, spec.log)
+    real_peak = float(np.max(raw.altitude_m))
+    real_peak_t = float(raw.t[int(np.argmax(raw.altitude_m))])
+    if (
+        official is not None
+        and abs(real_peak - official.value_m) > OFFICIAL_TOLERANCE * official.value_m
+    ):
+        raise IntegrityError(
+            f"{spec.id}: log peak {real_peak:.1f} m vs official {official.value_m:.1f} m "
+            f"differ by more than {OFFICIAL_TOLERANCE:.0%}: check units and cutoffs"
+        )
+    clean = telemetry.clean(raw)
+    arrays = real.real_arrays(clean)
+    gnss = telemetry.load_gnss(checkout, spec.gnss) if spec.gnss else None
+
+    ghost_lift = ghost.first_crossing(g.t, g.altitude, ghost.LIFTOFF_ALTITUDE_M)
+    if ghost_lift is None:
+        raise IntegrityError(f"{spec.id}: ghost never reaches liftoff altitude")
+    real_lift = real.real_liftoff(arrays.t, arrays.altitude)
+    shift = ghost_lift - real_lift if real_lift is not None else 0.0
+    d = real.delta(g, arrays, shift, aligned=real_lift is not None)
+    coarse = clean.median_interval_s > real.COARSE_INTERVAL_S
+
+    rail_exit = float(flight.out_of_rail_time)
+    samples = real.gap_samples(g, d, rail_exit, float(flight.apogee_time))
+    climbing = (g.t >= rail_exit) & (g.t <= float(flight.apogee_time))
+    reach = gapmap.FlightSamples(
+        spec.id, g.mach[climbing], g.altitude[climbing], np.zeros(int(climbing.sum()))
+    )
+    gap = None
+    peak = None
+    if not coarse and samples.dvz.size:
+        gap = gapmap.FlightSamples(spec.id, samples.mach, samples.altitude, samples.dvz)
+        k = int(np.argmax(np.abs(samples.dvz)))
+        peak = (float(samples.dvz[k]), float(samples.mach[k]), float(samples.altitude[k]))
+
+    cal = correction.calibrate(kwargs, real_peak)
+    diagnostics = Diagnostics(
+        real_t_start_s=float(clean.t[0]),
+        real_t_end_s=float(clean.t[-1]),
+        real_liftoff_s=None if real_lift is None else round(real_lift, 4),
+        ghost_liftoff_s=round(ghost_lift, 4),
+        liftoff_offset_s=None if real_lift is None else round(real_lift - ghost_lift, 4),
+        median_sample_interval_s=round(clean.median_interval_s, 4),
+        coarse_log=coarse,
+        duplicate_timestamps=clean.duplicate_timestamps,
+        rows_after_cutoff=raw.rows_after_cutoff,
+        importer_cross_check=cross,  # type: ignore[arg-type]
+    )
+    gnss_source = spec.gnss.path if spec.gnss else None
+    return Pass1(
+        spec_id=spec.id,
+        ghost=g.to_model(),
+        ghost_apogee_m=round(ghost_apogee, 3),
+        ghost_apogee_time_s=round(float(flight.apogee_time), 3),
+        max_mach=round(float(np.max(g.mach)), 4),
+        events=events,
+        real=real.real_series(arrays, spec.log, int(raw.t.size), gnss, gnss_source),
+        real_apogee_m=round(real_peak, 3),
+        real_apogee_time_s=round(real_peak_t, 3),
+        delta=d,
+        diagnostics=diagnostics,
+        gap=gap,
+        reach=reach,
+        peak_dvz=peak,
+        k_own=cal.k_own,
+        k_bracketed=cal.bracketed,
+        launch_site=LaunchSite(
+            latitude_deg=float(flight.env.latitude),
+            longitude_deg=float(flight.env.longitude),
+            elevation_m=float(flight.env.elevation),
+        ),
+        files=_source_files(checkout, spec),
+        team_prediction=team,
+        official=official,
+        rocketpy_version=version("rocketpy"),
+        cell_seconds=round(sum(c.seconds for c in run.cells), 2),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pass 3
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Pass3:
+    spec_id: str
+    corrected: GhostSeries
+    corrected_apogee_m: float
+
+
+def run_pass3(checkout_str: str, spec_id: str, k_hat: float) -> Pass3:
+    checkout = Path(checkout_str)
+    spec = catalog.by_id(spec_id)
+    run = notebook.run_notebook(checkout, spec.notebook, spec.skip_cells)
+    kwargs = notebook.flight_init_kwargs(run.get(spec.flight_var))
+    flight = correction.resimulate(kwargs, k_hat, to_apogee=False)
+    return Pass3(
+        spec_id=spec_id,
+        corrected=ghost.sample(flight).to_model(),
+        corrected_apogee_m=round(ghost.apogee_agl(flight), 3),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Assembly
+# ---------------------------------------------------------------------------
+def _write(path: Path, model: Model) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(model.model_dump_json(), encoding="utf-8")
+
+
+def _log(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
+
+
+def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None = None) -> Path:
+    specs = [s for s in catalog.FLEET if not only or s.id in only]
+    if len(specs) < 2:
+        raise ValueError("need at least two flights for held-out evaluation")
+    ctx = mp.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=jobs, mp_context=ctx) as pool:
+        futures = {s.id: pool.submit(run_pass1, str(checkout), s.id) for s in specs}
+        p1: dict[str, Pass1] = {}
+        for fid, fut in futures.items():
+            p1[fid] = fut.result()
+            r = p1[fid]
+            _log(
+                f"[pass1] {fid}: ghost {r.ghost_apogee_m:.1f} m, real {r.real_apogee_m:.1f} m, "
+                f"k_own {r.k_own:.4f}{'' if r.k_bracketed else ' (UNBRACKETED)'}, "
+                f"notebook {r.cell_seconds:.1f}s, cross-check {r.diagnostics.importer_cross_check}"
+            )
+
+        k_own = {fid: r.k_own for fid, r in p1.items()}
+        k_hat = {fid: correction.held_out_k(k_own, fid) for fid in p1}
+        futures3 = {fid: pool.submit(run_pass3, str(checkout), fid, k_hat[fid]) for fid in p1}
+        p3 = {fid: fut.result() for fid, fut in futures3.items()}
+
+    generated_at = datetime.now(UTC).replace(microsecond=0).isoformat()
+    rocketpy_version = next(iter(p1.values())).rocketpy_version
+    rows: list[CorrectionRow] = []
+    summaries: list[FlightSummary] = []
+    details: list[FlightDetail] = []
+    debriefs = []
+    for spec in specs:
+        a, c = p1[spec.id], p3[spec.id]
+        err_before = correction.error_pct(a.ghost_apogee_m, a.real_apogee_m)
+        err_after = correction.error_pct(c.corrected_apogee_m, a.real_apogee_m)
+        row = CorrectionRow(
+            id=spec.id,
+            k_own=a.k_own,
+            k_hat=k_hat[spec.id],
+            real_apogee_m=a.real_apogee_m,
+            ghost_apogee_m=a.ghost_apogee_m,
+            corrected_apogee_m=c.corrected_apogee_m,
+            err_before_pct=err_before,
+            err_after_pct=err_after,
+        )
+        rows.append(row)
+        summary = FlightSummary(
+            id=spec.id,
+            name=spec.name,
+            team=spec.team,
+            event=spec.event,
+            year=spec.year,
+            launch_site=a.launch_site,
+            has_position=a.real.gnss is not None,
+            real_channels=sorted(a.real.channels),
+            apogee=ApogeeSummary(
+                real_m=a.real_apogee_m,
+                real_time_s=a.real_apogee_time_s,
+                ghost_m=a.ghost_apogee_m,
+                ghost_time_s=a.ghost_apogee_time_s,
+                delta_m=round(a.real_apogee_m - a.ghost_apogee_m, 3),
+                ghost_error_pct=err_before,
+            ),
+            team_prediction=a.team_prediction,
+            official_apogee=a.official,
+            max_mach_ghost=a.max_mach,
+            correction=CorrectionSummary(
+                k_own=a.k_own,
+                k_hat=k_hat[spec.id],
+                corrected_apogee_m=c.corrected_apogee_m,
+                err_before_pct=err_before,
+                err_after_pct=err_after,
+            ),
+        )
+        summaries.append(summary)
+        details.append(
+            FlightDetail(
+                summary=summary,
+                provenance=Provenance(
+                    repo=ROCKETPY_REPO_URL,
+                    tag=ROCKETPY_TAG,
+                    commit=ROCKETPY_COMMIT,
+                    notebook=spec.notebook,
+                    files=a.files,
+                    rocketpy_version=a.rocketpy_version,
+                    engine_version=__version__,
+                    generated_at=generated_at,
+                ),
+                ghost=a.ghost,
+                corrected=c.corrected,
+                real=a.real,
+                delta=a.delta,
+                events=a.events,
+                diagnostics=a.diagnostics,
+            )
+        )
+        debriefs.append(
+            debrief.build(
+                debrief.DebriefInputs(
+                    flight_id=spec.id,
+                    notebook=spec.notebook,
+                    log_path=spec.log.path,
+                    real_apogee_m=a.real_apogee_m,
+                    ghost_apogee_m=a.ghost_apogee_m,
+                    official_apogee_m=a.official.value_m if a.official else None,
+                    official_decimals=catalog.metre_decimals(a.official.quote) if a.official else 0,
+                    team_prediction_m=a.team_prediction.value_m if a.team_prediction else None,
+                    team_prediction_decimals=(
+                        catalog.metre_decimals(a.team_prediction.quote) if a.team_prediction else 0
+                    ),
+                    corrected_apogee_m=c.corrected_apogee_m,
+                    k_hat=k_hat[spec.id],
+                    max_mach_ghost=a.max_mach,
+                    peak_dvz=a.peak_dvz[0] if a.peak_dvz else None,
+                    peak_dvz_mach=a.peak_dvz[1] if a.peak_dvz else None,
+                    peak_dvz_alt=a.peak_dvz[2] if a.peak_dvz else None,
+                    liftoff_offset_s=a.diagnostics.liftoff_offset_s,
+                    median_interval_s=a.diagnostics.median_sample_interval_s,
+                    coarse=a.diagnostics.coarse_log,
+                )
+            )
+        )
+
+    gap = gapmap.build(
+        [a.gap for a in p1.values() if a.gap is not None],
+        MACH_EDGES,
+        ALT_EDGES,
+        quantity="Velocity gap Δvz (real − ghost), ascent",
+        unit="m/s",
+        coordinates="Ghost Mach and ghost altitude AGL at the same (liftoff-aligned) time",
+        x_label="Mach (ghost)",
+        y_label="Altitude AGL (ghost), m",
+        reach=[a.reach for a in p1.values()],
+        caveats=[TRANSONIC_CAVEAT, DERIVED_VZ_NOTE],
+    )
+    best = nextbest.recommend(
+        gap, [nextbest.Candidate(s.id, s.name, s.max_mach_ghost) for s in summaries]
+    )
+    fleet = Fleet(
+        flights=summaries,
+        excluded=[Excluded(notebook=e.notebook, reason=e.reason) for e in catalog.EXCLUDED],
+        provenance=FleetProvenance(
+            repo=ROCKETPY_REPO_URL,
+            tag=ROCKETPY_TAG,
+            commit=ROCKETPY_COMMIT,
+            rocketpy_version=rocketpy_version,
+            engine_version=__version__,
+            generated_at=generated_at,
+        ),
+    )
+
+    staging = out_dir.with_name(out_dir.name + ".staging")
+    if staging.exists():
+        shutil.rmtree(staging)
+    _write(staging / "fleet.json", fleet)
+    _write(staging / "gapmap.json", gap)
+    _write(staging / "correction.json", correction.report(rows))
+    _write(staging / "nextbest.json", best)
+    for d in details:
+        _write(staging / "flights" / f"{d.summary.id}.json", d)
+    for db in debriefs:
+        _write(staging / "debriefs" / f"{db.flight_id}.json", db)
+    manifest: dict[str, Any] = {
+        "generated_at": generated_at,
+        "engine_version": __version__,
+        "source_commit": ROCKETPY_COMMIT,
+        "files": {
+            p.relative_to(staging).as_posix(): sha256_file(p)
+            for p in sorted(staging.rglob("*.json"))
+        },
+    }
+    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    staging.rename(out_dir)
+    return out_dir
