@@ -7,7 +7,8 @@
 |------|--------|
 | Acceptance, API (local) | 8/8 pass; 2 Storm Ghost scenarios skip until orbit data exists |
 | Acceptance, UI (local, Playwright) | 4/4 pass |
-| Engine: ruff / mypy --strict / pytest | pass / pass / 91 passed |
+| Engine: ruff / mypy --strict / pytest | pass / pass / 93 passed |
+| Reproducible rebuild (fresh clone, fresh fetch) | 26/26 artifacts identical apart from timestamps |
 | Web: tsc / eslint / next build | pass / pass / pass |
 | Artifact integrity (`asteria verify`) | rockets 26/26 hashes match; source commit verified |
 | Review findings open | 0 critical, 0 high (see below) |
@@ -49,6 +50,10 @@ Fixed during review:
 - Console: camera framing, overlapping event labels, padded axis values shown
   as data, "−0.0", a no-WebGL crash taking down the whole console.
 - React 19 rule: `useApi` no longer sets state synchronously in an effect.
+- Rebuilds were not reproducible: RocketPy draws parachute trigger noise from
+  unseeded `np.random` (GENESIS, NDRT descent differed by up to 0.46 m). The
+  generator is now seeded before every notebook run and re-simulation;
+  headline results unchanged; regression test added.
 
 Accepted with reasons:
 - Building Rockets artifacts executes RocketPy's notebook code (trust boundary,

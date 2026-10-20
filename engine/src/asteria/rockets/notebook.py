@@ -8,6 +8,12 @@ mechanical changes, all recorded:
 * Plotting is sent to a non-interactive backend and ``plt.show`` is a no-op.
 * Cells listed in the catalog's ``skip_cells`` are not run; each skip carries
   a written reason and is reported in the build log.
+* NumPy's global random generator is seeded (``RNG_SEED``) before the first
+  cell. Several notebooks add parachute trigger noise
+  (``Parachute(noise=...)``), which RocketPy draws from ``np.random``; without
+  a seed the descent part of the ghost changes on every build. The seed does
+  not change any value the notebook publishes or any Asteria result: it only
+  makes the rebuild byte-for-byte reproducible.
 
 Every ``Flight(...)`` constructed while the notebook runs is recorded with
 the exact arguments it was given, so it can be re-simulated later (for the
@@ -28,6 +34,16 @@ from pathlib import Path
 from typing import Any
 
 FLIGHT_ARGS_ATTR = "_asteria_init_kwargs"
+
+# Fixed seed for RocketPy's parachute trigger noise; see the module docstring.
+RNG_SEED = 20240510
+
+
+def seed_rng() -> None:
+    """Seed NumPy's global generator, the one RocketPy's parachute noise uses."""
+    import numpy as np
+
+    np.random.seed(RNG_SEED)
 
 
 @dataclass
@@ -158,6 +174,7 @@ def run_notebook(
         contextlib.redirect_stdout(sink),
         contextlib.redirect_stderr(sink),
     ):
+        seed_rng()
         for index, source in cells:
             if index in skip_cells:
                 run.cells.append(CellRecord(index, 0.0, skipped_reason=skip_cells[index]))

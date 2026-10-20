@@ -109,6 +109,8 @@ docs/contrast.md                       computed WCAG contrast for every text col
    matched character for character against the notebook text.
 5. **No invented positions.** A flight with altitude-only logs gets no real 3D
    path; only GNSS-logged flights show one.
+5b. **Rebuilds are reproducible.** RocketPy's parachute trigger noise is
+   drawn from a fixed seed, so a fresh build matches the shipped artifacts.
 6. **Every exclusion has a written, checked reason.** Five notebooks are not
    used (no log published, live web services, a broken data path, and one hybrid
    motor too expensive to rebuild as published); the reasons are in the console's
@@ -121,7 +123,7 @@ docs/contrast.md                       computed WCAG contrast for every text col
 ## Checks
 
 ```powershell
-cd engine;  uv run ruff check . ; uv run mypy src ; uv run pytest      # 91 unit tests
+cd engine;  uv run ruff check . ; uv run mypy src ; uv run pytest      # 93 unit tests
 cd web;     npm run typecheck ; npm run lint
 # Acceptance (API and console running):
 $env:API_URL="http://127.0.0.1:8000"; $env:ASTERIA_SOURCE_DIR="..\.asteria\cache\rocketpy-9bd6ad3af8f9"

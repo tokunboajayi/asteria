@@ -20,6 +20,7 @@ from typing import Any
 from scipy.optimize import brentq
 
 from asteria.models import CorrectionAggregate, CorrectionReport, CorrectionRow
+from asteria.rockets.notebook import seed_rng
 
 K_BRACKET = (0.5, 1.5)
 K_CLIP = (0.8, 1.2)
@@ -57,6 +58,7 @@ def resimulate(flight_kwargs: Mapping[str, Any], k: float, *, to_apogee: bool) -
     kwargs = dict(flight_kwargs)
     if to_apogee:
         kwargs["terminate_on_apogee"] = True
+    seed_rng()  # same parachute noise on every re-run, so results are reproducible
     with scaled_drag(kwargs["rocket"], k):
         return Flight(**kwargs)
 
