@@ -6,6 +6,7 @@ import {
   BoundingSphere,
   Cartesian3,
   Color,
+  Credit,
   ConstantPositionProperty,
   createWorldTerrainAsync,
   EllipsoidTerrainProvider,
@@ -14,8 +15,8 @@ import {
   ImageryLayer,
   Ion,
   Math as CesiumMath,
-  OpenStreetMapImageryProvider,
   PolylineDashMaterialProperty,
+  UrlTemplateImageryProvider,
   Viewer,
 } from "cesium";
 import { useEffect, useRef, useState } from "react";
@@ -27,6 +28,11 @@ import { modelAt, modelPath, realAt, realTrack, type GeoPoint } from "@/lib/geo"
 import styles from "./GlobeView.module.css";
 
 const ION_TOKEN = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN ?? "";
+
+// Imagery without a Cesium ion token: Esri World Imagery (needs no key).
+const ESRI_IMAGERY_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const ESRI_ATTRIBUTION = "Esri, Maxar, Earthstar Geographics";
 
 const GHOST = Color.fromCssColorString("#5fb4ff");
 const REAL = Color.fromCssColorString("#f5f7fa");
@@ -176,7 +182,14 @@ function createViewer(element: HTMLElement): Viewer {
     terrainProvider: new EllipsoidTerrainProvider(),
     baseLayer: ION_TOKEN
       ? ImageryLayer.fromWorldImagery({})
-      : new ImageryLayer(new OpenStreetMapImageryProvider({ url: "https://tile.openstreetmap.org/" })),
+      : new ImageryLayer(
+          new UrlTemplateImageryProvider({
+            url: ESRI_IMAGERY_URL,
+            // Shown on the map itself, not hidden in the attribution pop-up (Esri's terms).
+            credit: new Credit(ESRI_ATTRIBUTION, true),
+            maximumLevel: 19,
+          }),
+        ),
   });
 }
 
