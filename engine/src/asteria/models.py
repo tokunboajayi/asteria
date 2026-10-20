@@ -338,3 +338,83 @@ class Health(Model):
 class OrbitsStatus(Model):
     available: bool
     reason: str
+
+
+# --------------------------------------------------------------------------
+# Orbits: Storm Ghost
+# --------------------------------------------------------------------------
+class OmniSource(Model):
+    url: str
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    downloaded_at: str
+
+
+class OrbitProvenance(Model):
+    spacetrack_query: str = Field(description="Space-Track gp_history query (no credentials).")
+    spacetrack_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    spacetrack_downloaded_at: str
+    omni: list[OmniSource]
+    sgp4_version: str
+    engine_version: str
+    generated_at: str
+
+
+class GapSeries(Model):
+    """Tracked − ghost at each later element set's epoch, in the ghost's R/I/C frame (km)."""
+
+    base_epoch: str = Field(description="Epoch of the element set the ghost starts from (UTC).")
+    base_mean_altitude_km: float
+    epochs: list[str]
+    days: list[float]
+    radial_km: list[float]
+    in_track_km: list[float]
+    cross_track_km: list[float]
+    max_kp: list[float | None] = Field(
+        description="Highest hourly Kp between the ghost's epoch and each tracked epoch."
+    )
+    ghost_lat: list[float]
+    ghost_lon: list[float]
+    ghost_alt_km: list[float]
+    tracked_lat: list[float]
+    tracked_lon: list[float]
+    tracked_alt_km: list[float]
+    stopped_by_maneuver_at: str | None = Field(
+        description="Epoch of the first maneuver after the ghost's epoch; no gap is shown past it."
+    )
+
+
+class OrbitObjectSummary(Model):
+    norad_id: int
+    name: str
+    note: str
+    element_sets: int = Field(description="Element sets in the downloaded window.")
+    storm: GapSeries | None
+    quiet: GapSeries | None
+    excluded_reason: str | None
+
+
+class SpaceWeatherSeries(Model):
+    source: str
+    times: list[str]
+    kp: list[float | None]
+    dst_nt: list[int | None]
+    ap_nt: list[int | None]
+    f107_sfu: list[float | None]
+
+
+class StormInfo(Model):
+    name: str
+    onset: str
+    follow_days: float
+    quiet_start: str | None
+    quiet_end: str | None
+    quiet_max_kp: float
+    maneuver_rise_m: float
+    peak_kp: float | None
+    min_dst_nt: int | None
+
+
+class OrbitFleet(Model):
+    storm: StormInfo
+    objects: list[OrbitObjectSummary]
+    provenance: OrbitProvenance

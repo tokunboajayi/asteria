@@ -12,6 +12,8 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "matplotlib>=3.9",
+    # Orbits: the reference SGP4 propagator (Vallado), as used with US Space Force element sets.
+    "sgp4>=2.23",
     # Data contract and read-only API.
     "pydantic>=2.6",
     "fastapi>=0.110",

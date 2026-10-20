@@ -14,6 +14,10 @@ export type NextBest = components["schemas"]["NextBest"];
 export type Debrief = components["schemas"]["Debrief"];
 export type Fact = components["schemas"]["Fact"];
 export type OrbitsStatus = components["schemas"]["OrbitsStatus"];
+export type OrbitFleet = components["schemas"]["OrbitFleet"];
+export type OrbitObjectSummary = components["schemas"]["OrbitObjectSummary"];
+export type GapSeries = components["schemas"]["GapSeries"];
+export type SpaceWeatherSeries = components["schemas"]["SpaceWeatherSeries"];
 export type Provenance = components["schemas"]["Provenance"];
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");

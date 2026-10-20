@@ -17,3 +17,5 @@ playwright-report/
 engine/.pytest_cache/
 web/.next/
 web/next-env.d.ts
+engine/.env.local
+web/.env.local

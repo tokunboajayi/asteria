@@ -40,6 +40,23 @@ class Paths:
     def rockets_artifacts(self) -> Path:
         return self.artifacts / "rockets"
 
+    @property
+    def orbits_artifacts(self) -> Path:
+        return self.artifacts / "orbits"
+
+    @property
+    def omni_cache(self) -> Path:
+        return self.cache / "omni"
+
+    @property
+    def spacetrack_cache(self) -> Path:
+        return self.cache / "spacetrack"
+
+
+def env_file() -> Path:
+    """engine/.env.local: local secrets (git-ignored). Never committed."""
+    return Path(__file__).resolve().parents[2] / ".env.local"
+
 
 def default_home() -> Path:
     """`ASTERIA_HOME` if set, else `<repo>/.asteria`."""

@@ -109,6 +109,23 @@ correction toggle with held-out result → grounded debrief → Next Best Flight
 - Storm: NASA SPDF OMNI hourly Kp, Dst, F10.7 for the same window.
 - Gap map axes: Kp × altitude. Watch list: objects in uncharted cells.
 - Until credentials exist, the Orbits tab says so; no placeholder data.
+- **Pre-registered 2026-10-20, before any Space-Track download**
+  (engine/src/asteria/orbits/catalog.py holds the authoritative copy):
+  - Storm: 10–11 May 2024; onset 2024-05-10 17:00 UTC; followed 5 days.
+  - Objects: 12 named LEO objects (ISS, CSS Tianhe, HST, GRACE-FO 1, Swarm A,
+    ICESat-2, Terra, Aqua, Landsat 8, Landsat 9, Sentinel-2A, NOAA-20),
+    catalog numbers checked against CelesTrak's active catalog.
+  - Maneuver rule: mean semi-major axis rising > 200 m between consecutive
+    element sets = maneuver; a ghost is never compared across one.
+  - Quiet baseline: latest 5-day window before onset with every hourly Kp
+    ≤ 3.0 (from OMNI: 2024-04-11 → 2024-04-16, max Kp 2.7).
+  - Gap map: x = highest hourly Kp since the ghost's epoch, y = mean altitude
+    at the ghost's epoch, value = in-track gap per day (km/day), ≥ 2 objects
+    per charted cell.
+  - Watch list: deferred to Later (not built in the MVP).
+- *Revision log:* a code bug, not a rule change. The window helper counted
+  the hour starting exactly at a window's end; the real OMNI data exposed it
+  (the "quiet" window showed Kp 4.0). Fixed with a regression test.
 
 ## Non-functional
 

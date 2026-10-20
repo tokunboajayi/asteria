@@ -6,7 +6,16 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from asteria.models import CorrectionReport, Debrief, Fleet, FlightDetail, GapMap, NextBest
+from asteria.models import (
+    CorrectionReport,
+    Debrief,
+    Fleet,
+    FlightDetail,
+    GapMap,
+    NextBest,
+    OrbitFleet,
+    SpaceWeatherSeries,
+)
 from asteria.provenance import sha256_file
 
 
@@ -62,5 +71,27 @@ def load_rockets(root: Path) -> RocketStore:
         gapmap=GapMap.model_validate_json(read("gapmap.json")),
         correction=CorrectionReport.model_validate_json(read("correction.json")),
         nextbest=NextBest.model_validate_json(read("nextbest.json")),
+        manifest=manifest,
+    )
+
+
+@dataclass(frozen=True)
+class OrbitStore:
+    fleet: OrbitFleet
+    spaceweather: SpaceWeatherSeries
+    gapmap: GapMap
+    manifest: dict[str, object]
+
+
+def load_orbits(root: Path) -> OrbitStore:
+    manifest = _verified(root)
+
+    def read(rel: str) -> str:
+        return (root / rel).read_text(encoding="utf-8")
+
+    return OrbitStore(
+        fleet=OrbitFleet.model_validate_json(read("fleet.json")),
+        spaceweather=SpaceWeatherSeries.model_validate_json(read("spaceweather.json")),
+        gapmap=GapMap.model_validate_json(read("gapmap.json")),
         manifest=manifest,
     )

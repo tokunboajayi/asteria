@@ -22,7 +22,9 @@ import httpx
 import pytest
 
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000").rstrip("/")
-SOURCE_DIR = Path(os.environ.get("ASTERIA_SOURCE_DIR", ""))
+# Unset means "not available" (Path("") would silently mean the current folder).
+SOURCE_DIR = Path(os.environ["ASTERIA_SOURCE_DIR"]) if os.environ.get("ASTERIA_SOURCE_DIR") else None
+HAVE_SOURCE = SOURCE_DIR is not None and SOURCE_DIR.is_dir()
 PINNED_COMMIT = "9bd6ad3af8f97bafa3201d4e70eba2877e66e040"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 NUMBER = re.compile(r"[-−+]?\d[\d,]*(?:\.\d+)?")
@@ -72,7 +74,8 @@ def test_provenance_is_pinned_and_hashed(fleet: dict[str, Any], details: dict[st
         assert files, f"{fid}: no source files recorded"
         for entry in files:
             assert SHA256.match(entry["sha256"]), f"{fid}: bad sha256 for {entry['path']}"
-            if SOURCE_DIR.is_dir():
+            if HAVE_SOURCE:
+                assert SOURCE_DIR is not None
                 import hashlib
 
                 actual = hashlib.sha256((SOURCE_DIR / entry["path"]).read_bytes()).hexdigest()
@@ -104,7 +107,7 @@ def _read_raw_altitude_max(
     return peak
 
 
-@pytest.mark.skipif(not SOURCE_DIR.is_dir(), reason="ASTERIA_SOURCE_DIR not set")
+@pytest.mark.skipif(not HAVE_SOURCE, reason="ASTERIA_SOURCE_DIR not set")
 def test_real_apogee_matches_raw_published_log(details: dict[str, dict[str, Any]]) -> None:
     for fid, d in details.items():
         raw = d["real"]["raw_source"]
@@ -140,7 +143,7 @@ def test_delta_only_on_overlap_and_equals_real_minus_ghost(details: dict[str, di
 
 
 # 5 ------------------------------------------------------------------------
-@pytest.mark.skipif(not SOURCE_DIR.is_dir(), reason="ASTERIA_SOURCE_DIR not set")
+@pytest.mark.skipif(not HAVE_SOURCE, reason="ASTERIA_SOURCE_DIR not set")
 def test_team_prediction_quoted_verbatim_from_notebook(details: dict[str, dict[str, Any]]) -> None:
     checked = 0
     for fid, d in details.items():
@@ -215,3 +218,78 @@ def test_debrief_numbers_all_come_from_cited_facts(client: httpx.Client, fleet: 
                 allowed.update(NUMBER.findall(facts[fid]["label"]))
             for num in NUMBER.findall(s["text"]):
                 assert num in allowed, f"{f['id']}: number {num!r} not in cited facts: {s['text']}"
+
+
+# 13 -----------------------------------------------------------------------
+# Storm Ghost. Skipped until orbit artifacts exist (they need a Space-Track login).
+SPACETRACK_FILE = (
+    Path(os.environ["ASTERIA_SPACETRACK_FILE"]) if os.environ.get("ASTERIA_SPACETRACK_FILE") else None
+)
+
+
+def _orbits_or_skip(client: httpx.Client) -> dict[str, Any]:
+    status = client.get("/api/orbits/status").json()
+    if not status["available"]:
+        pytest.skip("orbit artifacts not built (needs a Space-Track login)")
+    r = client.get("/api/orbits/fleet")
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_orbit_gaps_recomputed_independently_from_raw_element_sets(client: httpx.Client) -> None:
+    """Re-derive every published gap with SGP4 straight from the raw Space-Track file."""
+    fleet = _orbits_or_skip(client)
+    if SPACETRACK_FILE is None or not SPACETRACK_FILE.is_file():
+        pytest.skip("ASTERIA_SPACETRACK_FILE not set")
+    import hashlib
+    from datetime import UTC, datetime
+
+    import numpy as np
+    from sgp4.api import WGS72, Satrec, jday
+
+    raw = SPACETRACK_FILE.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == fleet["provenance"]["spacetrack_sha256"]
+    records = json.loads(raw)
+
+    def when(text: str) -> datetime:
+        t = datetime.fromisoformat(text.replace("Z", ""))
+        return t.replace(tzinfo=UTC) if t.tzinfo is None else t
+
+    def rv(l1: str, l2: str, t: datetime) -> tuple[np.ndarray, np.ndarray]:
+        sat = Satrec.twoline2rv(l1, l2, WGS72)
+        jd, fr = jday(t.year, t.month, t.day, t.hour, t.minute, t.second + t.microsecond / 1e6)
+        err, r, v = sat.sgp4(jd, fr)
+        assert err == 0
+        return np.array(r), np.array(v)
+
+    checked = 0
+    for obj in fleet["objects"]:
+        series = obj["storm"]
+        if series is None:
+            continue
+        sets = sorted(
+            (r for r in records if int(r["NORAD_CAT_ID"]) == obj["norad_id"]),
+            key=lambda r: when(r["EPOCH"]),
+        )
+        base = [s for s in sets if when(s["EPOCH"]) < when(fleet["storm"]["onset"])][-1]
+        by_epoch = {when(s["EPOCH"]).replace(microsecond=0): s for s in sets}
+        for epoch, it in zip(series["epochs"], series["in_track_km"]):
+            t_key = when(epoch)
+            tracked = by_epoch[t_key]
+            t_exact = when(tracked["EPOCH"])
+            rg, vg = rv(base["TLE_LINE1"], base["TLE_LINE2"], t_exact)
+            rt, _ = rv(tracked["TLE_LINE1"], tracked["TLE_LINE2"], t_exact)
+            radial = rg / np.linalg.norm(rg)
+            cross = np.cross(rg, vg) / np.linalg.norm(np.cross(rg, vg))
+            in_track = float((rt - rg) @ np.cross(cross, radial))
+            assert it == pytest.approx(in_track, abs=1e-3), f"{obj['name']} at {epoch}"
+            checked += 1
+    assert checked > 0, "no orbit gaps were published"
+
+
+def test_orbit_gap_map_marks_uncharted_cells(client: httpx.Client) -> None:
+    _orbits_or_skip(client)
+    gm = client.get("/api/orbits/gapmap").json()
+    for c in gm["cells"]:
+        if c["n_flights"] < gm["min_flights"]:
+            assert c["charted"] is False and c["mean"] is None, c

@@ -13,10 +13,12 @@ const FASTER = "95, 180, 255"; // --ghost: real faster than the ghost
 interface Props {
   gap: Loadable<GapMap>;
   flightId: string;
+  /** What one contributor is called: rocket flights, or orbiting objects. */
+  noun?: "flights" | "objects";
 }
 
 /** Where across the envelope the ghost and the logs disagree; empty where there is no evidence. */
-export function GapMapPanel({ gap, flightId }: Props) {
+export function GapMapPanel({ gap, flightId, noun = "flights" }: Props) {
   if (gap.state !== "ready") return <PanelStatus title="Reality gap map" state={gap} />;
   const g = gap.data;
   const nx = g.x_edges.length - 1;
@@ -47,11 +49,11 @@ export function GapMapPanel({ gap, flightId }: Props) {
           Reality gap map
         </h2>
         <span className={styles.tagNeutral}>
-          {g.flights_included.length} flights · {charted.length} cells
+          {g.flights_included.length} {noun} · {charted.length} cells
         </span>
       </div>
       <p className={styles.note}>
-        {g.quantity} ({g.unit}). {g.coordinates}. A cell needs logs from at least {g.min_flights} flights;
+        {g.quantity} ({g.unit}). {g.coordinates}. A cell needs data from at least {g.min_flights} {noun};
         fewer, and it stays empty.
       </p>
       <div className={styles.mapWrap}>

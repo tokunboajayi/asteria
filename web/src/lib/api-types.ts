@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/orbits/fleet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orbits Fleet */
+        get: operations["orbits_fleet_api_orbits_fleet_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orbits/gapmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orbits Gapmap */
+        get: operations["orbits_gapmap_api_orbits_gapmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orbits/spaceweather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orbits Spaceweather */
+        get: operations["orbits_spaceweather_api_orbits_spaceweather_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orbits/status": {
         parameters: {
             query?: never;
@@ -502,6 +553,51 @@ export interface components {
             /** Y Label */
             y_label: string;
         };
+        /**
+         * GapSeries
+         * @description Tracked − ghost at each later element set's epoch, in the ghost's R/I/C frame (km).
+         */
+        GapSeries: {
+            /**
+             * Base Epoch
+             * @description Epoch of the element set the ghost starts from (UTC).
+             */
+            base_epoch: string;
+            /** Base Mean Altitude Km */
+            base_mean_altitude_km: number;
+            /** Cross Track Km */
+            cross_track_km: number[];
+            /** Days */
+            days: number[];
+            /** Epochs */
+            epochs: string[];
+            /** Ghost Alt Km */
+            ghost_alt_km: number[];
+            /** Ghost Lat */
+            ghost_lat: number[];
+            /** Ghost Lon */
+            ghost_lon: number[];
+            /** In Track Km */
+            in_track_km: number[];
+            /**
+             * Max Kp
+             * @description Highest hourly Kp between the ghost's epoch and each tracked epoch.
+             */
+            max_kp: (number | null)[];
+            /** Radial Km */
+            radial_km: number[];
+            /**
+             * Stopped By Maneuver At
+             * @description Epoch of the first maneuver after the ghost's epoch; no gap is shown past it.
+             */
+            stopped_by_maneuver_at: string | null;
+            /** Tracked Alt Km */
+            tracked_alt_km: number[];
+            /** Tracked Lat */
+            tracked_lat: number[];
+            /** Tracked Lon */
+            tracked_lon: number[];
+        };
         /** GhostSeries */
         GhostSeries: {
             /**
@@ -611,6 +707,60 @@ export interface components {
                 number,
                 number
             ];
+        };
+        /** OmniSource */
+        OmniSource: {
+            /** Downloaded At */
+            downloaded_at: string;
+            /** Sha256 */
+            sha256: string;
+            /** Url */
+            url: string;
+        };
+        /** OrbitFleet */
+        OrbitFleet: {
+            /** Objects */
+            objects: components["schemas"]["OrbitObjectSummary"][];
+            provenance: components["schemas"]["OrbitProvenance"];
+            storm: components["schemas"]["StormInfo"];
+        };
+        /** OrbitObjectSummary */
+        OrbitObjectSummary: {
+            /**
+             * Element Sets
+             * @description Element sets in the downloaded window.
+             */
+            element_sets: number;
+            /** Excluded Reason */
+            excluded_reason: string | null;
+            /** Name */
+            name: string;
+            /** Norad Id */
+            norad_id: number;
+            /** Note */
+            note: string;
+            quiet: components["schemas"]["GapSeries"] | null;
+            storm: components["schemas"]["GapSeries"] | null;
+        };
+        /** OrbitProvenance */
+        OrbitProvenance: {
+            /** Engine Version */
+            engine_version: string;
+            /** Generated At */
+            generated_at: string;
+            /** Omni */
+            omni: components["schemas"]["OmniSource"][];
+            /** Sgp4 Version */
+            sgp4_version: string;
+            /** Spacetrack Downloaded At */
+            spacetrack_downloaded_at: string;
+            /**
+             * Spacetrack Query
+             * @description Space-Track gp_history query (no credentials).
+             */
+            spacetrack_query: string;
+            /** Spacetrack Sha256 */
+            spacetrack_sha256: string;
         };
         /** OrbitsStatus */
         OrbitsStatus: {
@@ -736,6 +886,42 @@ export interface components {
             /** Sha256 */
             sha256: string;
         };
+        /** SpaceWeatherSeries */
+        SpaceWeatherSeries: {
+            /** Ap Nt */
+            ap_nt: (number | null)[];
+            /** Dst Nt */
+            dst_nt: (number | null)[];
+            /** F107 Sfu */
+            f107_sfu: (number | null)[];
+            /** Kp */
+            kp: (number | null)[];
+            /** Source */
+            source: string;
+            /** Times */
+            times: string[];
+        };
+        /** StormInfo */
+        StormInfo: {
+            /** Follow Days */
+            follow_days: number;
+            /** Maneuver Rise M */
+            maneuver_rise_m: number;
+            /** Min Dst Nt */
+            min_dst_nt: number | null;
+            /** Name */
+            name: string;
+            /** Onset */
+            onset: string;
+            /** Peak Kp */
+            peak_kp: number | null;
+            /** Quiet End */
+            quiet_end: string | null;
+            /** Quiet Max Kp */
+            quiet_max_kp: number;
+            /** Quiet Start */
+            quiet_start: string | null;
+        };
         /** Validation */
         Validation: {
             /** Notes */
@@ -767,6 +953,66 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    orbits_fleet_api_orbits_fleet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrbitFleet"];
+                };
+            };
+        };
+    };
+    orbits_gapmap_api_orbits_gapmap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GapMap"];
+                };
+            };
+        };
+    };
+    orbits_spaceweather_api_orbits_spaceweather_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpaceWeatherSeries"];
+                };
+            };
+        };
+    };
     orbits_status_api_orbits_status_get: {
         parameters: {
             query?: never;

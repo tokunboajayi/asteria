@@ -908,6 +908,144 @@
         "title": "GapMap",
         "type": "object"
       },
+      "GapSeries": {
+        "additionalProperties": false,
+        "description": "Tracked \u2212 ghost at each later element set's epoch, in the ghost's R/I/C frame (km).",
+        "properties": {
+          "base_epoch": {
+            "description": "Epoch of the element set the ghost starts from (UTC).",
+            "title": "Base Epoch",
+            "type": "string"
+          },
+          "base_mean_altitude_km": {
+            "title": "Base Mean Altitude Km",
+            "type": "number"
+          },
+          "cross_track_km": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Cross Track Km",
+            "type": "array"
+          },
+          "days": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "epochs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Epochs",
+            "type": "array"
+          },
+          "ghost_alt_km": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Ghost Alt Km",
+            "type": "array"
+          },
+          "ghost_lat": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Ghost Lat",
+            "type": "array"
+          },
+          "ghost_lon": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Ghost Lon",
+            "type": "array"
+          },
+          "in_track_km": {
+            "items": {
+              "type": "number"
+            },
+            "title": "In Track Km",
+            "type": "array"
+          },
+          "max_kp": {
+            "description": "Highest hourly Kp between the ghost's epoch and each tracked epoch.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Max Kp",
+            "type": "array"
+          },
+          "radial_km": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Radial Km",
+            "type": "array"
+          },
+          "stopped_by_maneuver_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Epoch of the first maneuver after the ghost's epoch; no gap is shown past it.",
+            "title": "Stopped By Maneuver At"
+          },
+          "tracked_alt_km": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Tracked Alt Km",
+            "type": "array"
+          },
+          "tracked_lat": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Tracked Lat",
+            "type": "array"
+          },
+          "tracked_lon": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Tracked Lon",
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_epoch",
+          "base_mean_altitude_km",
+          "epochs",
+          "days",
+          "radial_km",
+          "in_track_km",
+          "cross_track_km",
+          "max_kp",
+          "ghost_lat",
+          "ghost_lon",
+          "ghost_alt_km",
+          "tracked_lat",
+          "tracked_lon",
+          "tracked_alt_km",
+          "stopped_by_maneuver_at"
+        ],
+        "title": "GapSeries",
+        "type": "object"
+      },
       "GhostSeries": {
         "additionalProperties": false,
         "properties": {
@@ -1209,6 +1347,169 @@
           "alt_m"
         ],
         "title": "NextBestTarget",
+        "type": "object"
+      },
+      "OmniSource": {
+        "additionalProperties": false,
+        "properties": {
+          "downloaded_at": {
+            "title": "Downloaded At",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "sha256",
+          "downloaded_at"
+        ],
+        "title": "OmniSource",
+        "type": "object"
+      },
+      "OrbitFleet": {
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/OrbitObjectSummary"
+            },
+            "title": "Objects",
+            "type": "array"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/OrbitProvenance"
+          },
+          "storm": {
+            "$ref": "#/components/schemas/StormInfo"
+          }
+        },
+        "required": [
+          "storm",
+          "objects",
+          "provenance"
+        ],
+        "title": "OrbitFleet",
+        "type": "object"
+      },
+      "OrbitObjectSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "element_sets": {
+            "description": "Element sets in the downloaded window.",
+            "title": "Element Sets",
+            "type": "integer"
+          },
+          "excluded_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded Reason"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "norad_id": {
+            "title": "Norad Id",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GapSeries"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "storm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GapSeries"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "norad_id",
+          "name",
+          "note",
+          "element_sets",
+          "storm",
+          "quiet",
+          "excluded_reason"
+        ],
+        "title": "OrbitObjectSummary",
+        "type": "object"
+      },
+      "OrbitProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "engine_version": {
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "omni": {
+            "items": {
+              "$ref": "#/components/schemas/OmniSource"
+            },
+            "title": "Omni",
+            "type": "array"
+          },
+          "sgp4_version": {
+            "title": "Sgp4 Version",
+            "type": "string"
+          },
+          "spacetrack_downloaded_at": {
+            "title": "Spacetrack Downloaded At",
+            "type": "string"
+          },
+          "spacetrack_query": {
+            "description": "Space-Track gp_history query (no credentials).",
+            "title": "Spacetrack Query",
+            "type": "string"
+          },
+          "spacetrack_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Spacetrack Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spacetrack_query",
+          "spacetrack_sha256",
+          "spacetrack_downloaded_at",
+          "omni",
+          "sgp4_version",
+          "engine_version",
+          "generated_at"
+        ],
+        "title": "OrbitProvenance",
         "type": "object"
       },
       "OrbitsStatus": {
@@ -1525,6 +1826,170 @@
         "title": "SourceFile",
         "type": "object"
       },
+      "SpaceWeatherSeries": {
+        "additionalProperties": false,
+        "properties": {
+          "ap_nt": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Ap Nt",
+            "type": "array"
+          },
+          "dst_nt": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Dst Nt",
+            "type": "array"
+          },
+          "f107_sfu": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "F107 Sfu",
+            "type": "array"
+          },
+          "kp": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Kp",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "times": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Times",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "times",
+          "kp",
+          "dst_nt",
+          "ap_nt",
+          "f107_sfu"
+        ],
+        "title": "SpaceWeatherSeries",
+        "type": "object"
+      },
+      "StormInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "follow_days": {
+            "title": "Follow Days",
+            "type": "number"
+          },
+          "maneuver_rise_m": {
+            "title": "Maneuver Rise M",
+            "type": "number"
+          },
+          "min_dst_nt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Dst Nt"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "onset": {
+            "title": "Onset",
+            "type": "string"
+          },
+          "peak_kp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Kp"
+          },
+          "quiet_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet End"
+          },
+          "quiet_max_kp": {
+            "title": "Quiet Max Kp",
+            "type": "number"
+          },
+          "quiet_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Start"
+          }
+        },
+        "required": [
+          "name",
+          "onset",
+          "follow_days",
+          "quiet_start",
+          "quiet_end",
+          "quiet_max_kp",
+          "maneuver_rise_m",
+          "peak_kp",
+          "min_dst_nt"
+        ],
+        "title": "StormInfo",
+        "type": "object"
+      },
       "Validation": {
         "additionalProperties": false,
         "properties": {
@@ -1601,6 +2066,60 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/orbits/fleet": {
+      "get": {
+        "operationId": "orbits_fleet_api_orbits_fleet_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrbitFleet"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Orbits Fleet"
+      }
+    },
+    "/api/orbits/gapmap": {
+      "get": {
+        "operationId": "orbits_gapmap_api_orbits_gapmap_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GapMap"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Orbits Gapmap"
+      }
+    },
+    "/api/orbits/spaceweather": {
+      "get": {
+        "operationId": "orbits_spaceweather_api_orbits_spaceweather_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpaceWeatherSeries"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Orbits Spaceweather"
+      }
+    },
     "/api/orbits/status": {
       "get": {
         "operationId": "orbits_status_api_orbits_status_get",
