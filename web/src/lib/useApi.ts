@@ -9,20 +9,30 @@ export type Loadable<T> =
   | { state: "error"; message: string }
   | { state: "ready"; data: T };
 
-/** Fetch one API path; refetches when `path` changes, aborts stale requests. */
+type Settled<T> = { path: string; result: Exclude<Loadable<T>, { state: "loading" }> };
+
+/**
+ * Fetch one API path; refetches when `path` changes and aborts stale requests.
+ * State is only set from the request's callbacks; "loading" is derived (the
+ * last settled result belongs to a different path), so a stale response can
+ * never be shown for the current path.
+ */
 export function useApi<T>(path: string | null): Loadable<T> {
-  const [result, setResult] = useState<Loadable<T>>({ state: "loading" });
+  const [settled, setSettled] = useState<Settled<T> | null>(null);
   useEffect(() => {
     if (path === null) return;
     const controller = new AbortController();
-    setResult({ state: "loading" });
     getJson<T>(path, controller.signal)
-      .then((data) => setResult({ state: "ready", data }))
+      .then((data) => setSettled({ path, result: { state: "ready", data } }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        setResult({ state: "error", message: error instanceof Error ? error.message : String(error) });
+        setSettled({
+          path,
+          result: { state: "error", message: error instanceof Error ? error.message : String(error) },
+        });
       });
     return () => controller.abort();
   }, [path]);
-  return result;
+  if (path === null || settled === null || settled.path !== path) return { state: "loading" };
+  return settled.result;
 }

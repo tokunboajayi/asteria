@@ -1,0 +1,97 @@
+.timeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.play {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2a313c;
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.track {
+  flex: 1 1 360px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.events {
+  position: relative;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.events li {
+  position: absolute;
+  top: 0;
+  transform: translateX(-2px);
+}
+
+.event,
+.eventReal {
+  min-height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-left: 1px solid #2a313c;
+  background: transparent;
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.eventReal {
+  color: var(--real);
+  border-left-color: var(--real);
+}
+
+.range {
+  width: 100%;
+  accent-color: var(--gap);
+}
+
+.readout {
+  font: 500 12px var(--font-mono);
+  min-width: 84px;
+}
+
+.speeds {
+  display: flex;
+  gap: 4px;
+}
+
+.speed,
+.speedOn {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 6px;
+  font: 500 12px var(--font-mono);
+  cursor: pointer;
+}
+
+.speed {
+  border: 1px solid #2a313c;
+  background: transparent;
+}
+
+.speedOn {
+  border: 1px solid var(--gap);
+  background: var(--caution-bg);
+  color: var(--gap);
+}

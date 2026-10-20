@@ -41,6 +41,14 @@ def _verify() -> int:
     return 1 if bad else 0
 
 
+def _openapi(out: Path) -> None:
+    """Write the API's OpenAPI schema; the web console generates its types from it."""
+    from asteria.api.app import app
+
+    out.write_text(json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"openapi schema written: {out}")
+
+
 def _serve(args: argparse.Namespace) -> None:
     import uvicorn
 
@@ -58,6 +66,8 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("serve", help="run the API")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
+    o = sub.add_parser("openapi", help="write the API schema used to generate web types")
+    o.add_argument("--out", type=Path, default=Path("openapi.json"))
     args = parser.parse_args(argv)
     if args.command == "fetch":
         _fetch()
@@ -67,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         return _verify()
     elif args.command == "serve":
         _serve(args)
+    elif args.command == "openapi":
+        _openapi(args.out)
     return 0
 
 

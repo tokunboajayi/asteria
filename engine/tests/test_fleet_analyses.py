@@ -14,16 +14,25 @@ def _samples(fid: str, xs: list[float], ys: list[float], vs: list[float]) -> gap
 
 def _map(samples, reach=()):  # type: ignore[no-untyped-def]
     return gapmap.build(
-        samples, [0.0, 0.5, 1.0], [0.0, 100.0, 200.0],
-        quantity="q", unit="u", coordinates="c", x_label="x", y_label="y", reach=reach,
+        samples,
+        [0.0, 0.5, 1.0],
+        [0.0, 100.0, 200.0],
+        quantity="q",
+        unit="u",
+        coordinates="c",
+        x_label="x",
+        y_label="y",
+        reach=reach,
     )
 
 
 def test_gap_cells_need_two_flights_and_count_everything() -> None:
-    gm = _map([
-        _samples("a", [0.1, 0.1, 0.7], [10, 20, 150], [1.0, 3.0, 9.0]),
-        _samples("b", [0.2], [50], [5.0]),
-    ])
+    gm = _map(
+        [
+            _samples("a", [0.1, 0.1, 0.7], [10, 20, 150], [1.0, 3.0, 9.0]),
+            _samples("b", [0.2], [50], [5.0]),
+        ]
+    )
     cell = {(c.x_index, c.y_index): c for c in gm.cells}
     assert cell[(0, 0)].charted and cell[(0, 0)].mean == pytest.approx(3.0)
     assert cell[(0, 0)].n_flights == 2 and cell[(0, 0)].n_samples == 3
@@ -44,7 +53,9 @@ def test_next_best_only_picks_reachable_cells() -> None:
     ]
     reach = [_samples("a", [0.1, 0.7], [10, 50], [0, 0])]  # ghosts reach (0,0) and (1,0)
     gm = _map(measured, reach)
-    best = nextbest.recommend(gm, [nextbest.Candidate("a", "A", 0.8), nextbest.Candidate("b", "B", 0.4)])
+    best = nextbest.recommend(
+        gm, [nextbest.Candidate("a", "A", 0.8), nextbest.Candidate("b", "B", 0.4)]
+    )
     assert best.cells == [(1, 0)]  # reachable, uncharted; (1,1) and (0,1) are never flown
     assert best.target.mach == (0.5, 1.0)
     assert best.ghost_flights == ["a"]  # a's ghost flies there; its log never measured it
@@ -60,8 +71,16 @@ def test_held_out_k_never_sees_its_own_flight() -> None:
 
 def test_report_aggregates_from_rows() -> None:
     rows = [
-        CorrectionRow(id=i, k_own=1, k_hat=1, real_apogee_m=1, ghost_apogee_m=1, corrected_apogee_m=1,
-                      err_before_pct=b, err_after_pct=a)
+        CorrectionRow(
+            id=i,
+            k_own=1,
+            k_hat=1,
+            real_apogee_m=1,
+            ghost_apogee_m=1,
+            corrected_apogee_m=1,
+            err_before_pct=b,
+            err_after_pct=a,
+        )
         for i, b, a in [("x", 5.0, 2.0), ("y", -4.0, -6.0), ("z", 1.0, 1.0)]
     ]
     rep = correction.report(rows)

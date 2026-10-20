@@ -14,3 +14,6 @@ web/public/cesium/
 test-results/
 playwright-report/
 *.log
+engine/.pytest_cache/
+web/.next/
+web/next-env.d.ts

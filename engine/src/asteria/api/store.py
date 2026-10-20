@@ -52,7 +52,9 @@ def load_rockets(root: Path) -> RocketStore:
     flights = {
         f.id: FlightDetail.model_validate_json(read(f"flights/{f.id}.json")) for f in fleet.flights
     }
-    debriefs = {f.id: Debrief.model_validate_json(read(f"debriefs/{f.id}.json")) for f in fleet.flights}
+    debriefs = {
+        f.id: Debrief.model_validate_json(read(f"debriefs/{f.id}.json")) for f in fleet.flights
+    }
     return RocketStore(
         fleet=fleet,
         flights=flights,

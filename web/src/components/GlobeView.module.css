@@ -1,0 +1,82 @@
+.view {
+  position: relative;
+  height: clamp(320px, 46vh, 560px);
+  border-bottom: 1px solid var(--line);
+  background: #05070a;
+}
+
+.globe {
+  position: absolute;
+  inset: 0;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font: 500 12px var(--font-mono);
+  color: var(--text-dim);
+}
+
+.caption {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  pointer-events: none;
+}
+
+.legend {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  font: 400 11px var(--font-mono);
+  background: rgb(5 7 10 / 0.85);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatchGhost,
+.swatchReal,
+.swatchCorrected,
+.swatchNone {
+  display: inline-block;
+  width: 26px;
+  height: 0;
+}
+
+.swatchGhost {
+  border-top: 2px dashed var(--ghost);
+}
+
+.swatchReal {
+  border-top: 2px solid var(--real);
+}
+
+.swatchCorrected {
+  border-top: 2px dotted var(--corrected);
+}
+
+.swatchNone {
+  border-top: 2px solid #2a313c;
+}
+
+@media (max-width: 640px) {
+  .legend {
+    top: auto;
+    bottom: 12px;
+    right: 12px;
+  }
+}

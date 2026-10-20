@@ -56,7 +56,11 @@ def test_team_prediction_is_explicitly_pre_flight(spec: catalog.FlightSpec) -> N
 def test_declared_columns_exist(spec: catalog.FlightSpec, checkout: Path) -> None:
     with (checkout / spec.log.path).open(newline="", encoding="utf-8-sig") as fh:
         header = next(csv.reader(fh, delimiter=spec.log.delimiter))
-    for col in (spec.log.time_column, spec.log.altitude_column, *(c.column for c in spec.log.extra)):
+    for col in (
+        spec.log.time_column,
+        spec.log.altitude_column,
+        *(c.column for c in spec.log.extra),
+    ):
         assert col in header, col
     if spec.gnss is not None:
         with (checkout / spec.gnss.path).open(newline="", encoding="utf-8-sig") as fh:

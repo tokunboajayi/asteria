@@ -31,13 +31,28 @@ def test_validator_rejects_numbers_not_in_cited_facts() -> None:
 
 @pytest.mark.parametrize("coarse", [True, False])
 def test_template_debrief_always_validates(coarse: bool) -> None:
-    d = debrief.build(debrief.DebriefInputs(
-        flight_id="erebus-11-2022", notebook="nb", log_path="log", real_apogee_m=3001.8,
-        ghost_apogee_m=2751.1, official_apogee_m=3020.0, official_decimals=0,
-        team_prediction_m=2806.0, team_prediction_decimals=0, corrected_apogee_m=2800.0,
-        k_hat=0.95, max_mach_ghost=0.86, peak_dvz=-20.5, peak_dvz_mach=0.8, peak_dvz_alt=900.0,
-        liftoff_offset_s=-0.31, median_interval_s=0.5 if coarse else 0.05, coarse=coarse,
-    ))
+    d = debrief.build(
+        debrief.DebriefInputs(
+            flight_id="erebus-11-2022",
+            notebook="nb",
+            log_path="log",
+            real_apogee_m=3001.8,
+            ghost_apogee_m=2751.1,
+            official_apogee_m=3020.0,
+            official_decimals=0,
+            team_prediction_m=2806.0,
+            team_prediction_decimals=0,
+            corrected_apogee_m=2800.0,
+            k_hat=0.95,
+            max_mach_ghost=0.86,
+            peak_dvz=-20.5,
+            peak_dvz_mach=0.8,
+            peak_dvz_alt=900.0,
+            liftoff_offset_s=-0.31,
+            median_interval_s=0.5 if coarse else 0.05,
+            coarse=coarse,
+        )
+    )
     assert d.validation.passed and d.validation.rejected == 0
     text = " ".join(s.text for s in d.sentences)
     assert "3,020 m" in text  # source precision kept (no invented decimals)

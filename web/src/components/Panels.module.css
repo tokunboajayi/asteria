@@ -1,0 +1,293 @@
+/* Shared look for the analysis column's panels. */
+.panel {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel h2 {
+  margin: 0;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-strong);
+}
+
+.note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.tagGo,
+.tagCaution,
+.tagNeutral {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tagGo {
+  background: var(--go-bg);
+  color: var(--corrected);
+}
+
+.tagCaution {
+  background: var(--caution-bg);
+  color: var(--gap);
+}
+
+.tagNeutral {
+  background: var(--panel);
+  color: var(--ghost-soft);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  margin: 0;
+  font: 12px var(--font-mono);
+}
+
+.kv dt {
+  color: var(--text-label);
+}
+
+.kv dd {
+  margin: 0;
+  text-align: right;
+  color: var(--text-strong);
+}
+
+/* Per-flight error bars */
+.bars {
+  width: 100%;
+  border-collapse: collapse;
+  font: 10px var(--font-mono);
+}
+
+.bars thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-label);
+  padding: 2px 0 4px;
+}
+
+.bars tbody th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--text-dim);
+  padding: 3px 6px 3px 0;
+  white-space: nowrap;
+}
+
+.bars td {
+  padding: 3px 0;
+  width: 100%;
+}
+
+.selected th {
+  color: var(--text-strong) !important;
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.barTrack {
+  position: relative;
+  flex: 1;
+  height: 5px;
+}
+
+.barZero {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: #2a313c;
+}
+
+.barGhost,
+.barCorrected {
+  position: absolute;
+  top: 0;
+  height: 5px;
+  border-radius: 1px;
+}
+
+.barGhost {
+  background: var(--ghost);
+}
+
+.barCorrected {
+  background: var(--corrected);
+}
+
+.barValue {
+  min-width: 52px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+/* Debrief */
+.sentences {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.cite {
+  margin-left: 3px;
+  padding: 0 3px;
+  border: 1px solid #2a313c;
+  border-radius: 3px;
+  background: transparent;
+  font: 500 9px var(--font-mono);
+  color: var(--ghost-soft);
+  vertical-align: 2px;
+  cursor: help;
+}
+
+.factList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 11px var(--font-mono);
+  color: var(--text-dim);
+}
+
+.factList li {
+  padding: 2px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.factActive {
+  color: var(--text-strong);
+}
+
+/* Gap map */
+.map {
+  display: grid;
+  gap: 1px;
+}
+
+.cell {
+  aspect-ratio: 1.4;
+  border-radius: 1px;
+}
+
+.uncharted {
+  background: repeating-linear-gradient(135deg, #1a1f27 0 2px, transparent 2px 5px);
+}
+
+.unreached {
+  background: transparent;
+}
+
+.mine {
+  outline: 1px solid var(--text-strong);
+  outline-offset: -1px;
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  font: 9px var(--font-mono);
+  color: var(--text-label);
+}
+
+.mapWrap {
+  display: flex;
+  gap: 6px;
+}
+
+.yAxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font: 9px var(--font-mono);
+  color: var(--text-label);
+  min-width: 34px;
+  text-align: right;
+}
+
+.legendRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font: 10px var(--font-mono);
+  color: var(--text-dim);
+}
+
+.ramp {
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+
+.caveats {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* Next best flight */
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tile {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  font-family: var(--font-mono);
+}
+
+.tile div:first-child {
+  font-size: 10px;
+  color: var(--text-label);
+}
+
+.tile div:last-child {
+  color: var(--text-strong);
+}

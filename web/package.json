@@ -1,0 +1,31 @@
+{
+  "name": "asteria-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/copy-cesium.mjs",
+    "gen:types": "openapi-typescript ../engine/openapi.json -o src/lib/api-types.ts",
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test:acceptance": "playwright test -c ../gan-harness/acceptance"
+  },
+  "dependencies": {
+    "cesium": "1.146.0",
+    "next": "16.4.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.2",
+    "openapi-typescript": "7.13.0",
+    "typescript": "^5"
+  }
+}

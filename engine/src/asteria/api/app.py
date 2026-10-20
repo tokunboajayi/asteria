@@ -57,7 +57,9 @@ app = FastAPI(
 app.add_middleware(GZipMiddleware, minimum_size=2048)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in os.environ.get("ASTERIA_WEB_ORIGINS", DEFAULT_ORIGINS).split(",")],
+    allow_origins=[
+        o.strip() for o in os.environ.get("ASTERIA_WEB_ORIGINS", DEFAULT_ORIGINS).split(",")
+    ],
     allow_methods=["GET"],
     allow_headers=["*"],
 )

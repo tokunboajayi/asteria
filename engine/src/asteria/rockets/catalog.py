@@ -221,32 +221,6 @@ FLEET: tuple[FlightSpec, ...] = (
         official_apogee_quote="Official recorded apogee: `2916 m`",
     ),
     FlightSpec(
-        id="halcyon-2023",
-        name="Halcyon",
-        team="Aerospace Team Graz",
-        event=f"{EUROC} 2023",
-        year=2023,
-        notebook=f"{EXAMPLES}/halcyon_flight_sim.ipynb",
-        flight_var="test_flight",
-        importer_var="cots_altimeter_flight",
-        title_quote="# Halcyon - Aerospace Team Graz - 2023",
-        log=LogSpec(
-            path=f"{DATA}/astg/altimeter_halcyon.csv",
-            time_column="ts",
-            altitude_column="filtered_altitude_AGL",
-            altitude_unit="m",
-            extra=(ACCEL_FILTERED,),
-        ),
-        gnss=GnssSpec(
-            path=f"{DATA}/astg/gnss_halcyon.csv",
-            time_column="ts",
-            latitude_column="latitude",
-            longitude_column="longitude",
-        ),
-        team_prediction_quote="Last simulated apogee before flight: `3163 m`",
-        official_apogee_quote="Official recorded apogee: `3450 m`",
-    ),
-    FlightSpec(
         id="juno-iii-2023",
         name="Juno III",
         team="Projeto Jupiter (University of São Paulo)",
@@ -362,12 +336,22 @@ EXCLUDED: tuple[Exclusion, ...] = (
     ),
     Exclusion(
         f"{EXAMPLES}/valkyrie_flight_sim.ipynb",
-        "Its weather comes from a live forecast service (Windy), which returns today's forecast, "
-        "not the weather on the 2025 launch day; the ghost would not be reproducible.",
+        "Its weather comes from a live forecast service (Windy, set_atmospheric_model type "
+        "'windy'), which returns today's forecast, and its Environment date is 2026-07-26 while "
+        "the flight was on 2025-07-26; the ghost would be neither reproducible nor the launch day.",
     ),
     Exclusion(
         f"{EXAMPLES}/hedy_flight_sim.ipynb",
-        "Cell 12 depends on a live web service and fails when run headless.",
+        "Cell 12 fetches the site elevation from a live web service (Open-Elevation), and its "
+        "flight-log importer reads data/rockets/tust/, which does not exist at the pinned commit "
+        "(the files are under data/rockets/hedy/cats_tust/).",
+    ),
+    Exclusion(
+        f"{EXAMPLES}/halcyon_flight_sim.ipynb",
+        "Too expensive to rebuild as published: building its hybrid motor (cell 10, RocketPy "
+        "1.13.0 grain-regression ODE in solid_motor.py:603, scipy 1.18.1) ran 6 min and grew past "
+        "1.8 GB without finishing, and a 15-min full attempt reached 4.4 GB; calibration would "
+        "need about a dozen more simulations on an 8 GB machine. Measured 2026-10-20.",
     ),
     Exclusion(f"{EXAMPLES}/SEB_liquid_motor.ipynb", "A motor test, not a flight."),
 )

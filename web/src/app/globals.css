@@ -1,0 +1,84 @@
+/*
+ * Asteria design tokens: a flight-dynamics console.
+ * Text colours are chosen to pass WCAG 4.5:1 on --bg (checked in docs/contrast.md).
+ */
+:root {
+  --bg: #07090c;
+  --bg-raised: #0a0d12;
+  --panel: #0d1117;
+  --line: #1c222b;
+  --line-soft: #131820;
+
+  --text: #d7dce3;
+  --text-strong: #f5f7fa;
+  --text-dim: #9aa3af; /* 7.8:1 on --bg */
+  --text-label: #8a939f; /* 6.4:1 on --bg; the dimmest small text allowed */
+
+  --ghost: #5fb4ff; /* physics prediction */
+  --ghost-soft: #8fc6ff;
+  --real: #f5f7fa; /* measured */
+  --corrected: #3fd18a; /* physics + held-out correction */
+  --gap: #ffb020; /* the difference */
+  --caution-bg: #33260a;
+  --go-bg: #0f2a1c;
+
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--ghost-soft);
+}
+
+a:hover {
+  color: #b9dcff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ghost);
+  outline-offset: 2px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.label {
+  font: 500 10px/1.3 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

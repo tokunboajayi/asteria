@@ -286,7 +286,8 @@ class NextBest(Model):
     score: float
     cells: list[tuple[int, int]]
     ghost_flights: list[str] = Field(
-        description="Fleet flights whose ghost flies through the target (their logs did not chart it)."
+        description="Fleet flights whose ghost flies through the target "
+        "(their logs did not chart it)."
     )
     nearest_flight: NearestFlight
     rationale: str
