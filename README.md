@@ -109,8 +109,6 @@ docs/contrast.md                       computed WCAG contrast for every text col
    matched character for character against the notebook text.
 5. **No invented positions.** A flight with altitude-only logs gets no real 3D
    path; only GNSS-logged flights show one.
-5b. **Rebuilds are reproducible.** RocketPy's parachute trigger noise is
-   drawn from a fixed seed, so a fresh build matches the shipped artifacts.
 6. **Every exclusion has a written, checked reason.** Five notebooks are not
    used (no log published, live web services, a broken data path, and one hybrid
    motor too expensive to rebuild as published); the reasons are in the console's
@@ -119,6 +117,8 @@ docs/contrast.md                       computed WCAG contrast for every text col
    the facts it cites; otherwise it is rejected, never repaired.
 8. **Independent acceptance tests** re-read the raw files themselves (without
    importing the engine) and compare them with what the API serves.
+9. **Rebuilds are reproducible.** RocketPy's parachute trigger noise is
+   drawn from a fixed seed, so a fresh build matches the shipped artifacts.
 
 ## Checks
 
