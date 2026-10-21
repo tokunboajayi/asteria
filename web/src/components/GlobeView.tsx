@@ -3,7 +3,9 @@
 import dynamic from "next/dynamic";
 
 import type { FlightDetail } from "@/lib/api";
+import { fmtM, fmtPct, fmtSigned } from "@/lib/format";
 import type { Mode } from "@/lib/flightView";
+import { buildRuler } from "@/lib/ruler";
 
 import styles from "./GlobeView.module.css";
 
@@ -21,6 +23,8 @@ interface Props {
 
 export function GlobeView({ detail, mode, cursor }: Props) {
   const hasTrack = detail.real.gnss !== null;
+  const ruler = buildRuler(detail, mode, fmtM);
+  const modelName = ruler.modelName.toLowerCase();
   return (
     <section className={styles.view} aria-label="Trajectory view">
       <div className={styles.globe} data-testid="globe">
@@ -28,6 +32,13 @@ export function GlobeView({ detail, mode, cursor }: Props) {
       </div>
       <div className={styles.caption}>
         <span className="label">Trajectory · 3D globe</span>
+      </div>
+      <div className={styles.gapBadge} data-testid="globe-gap">
+        <span className="label">Apogee gap · real − {modelName}</span>
+        <strong>{fmtSigned(ruler.gap, 0)} m</strong>
+        <span className={styles.gapPct}>
+          {modelName} error {fmtPct(((ruler.model.agl - ruler.real.agl) / ruler.real.agl) * 100)}
+        </span>
       </div>
       <ul className={styles.legend} aria-label="Legend">
         <li>
@@ -39,8 +50,11 @@ export function GlobeView({ detail, mode, cursor }: Props) {
           </li>
         )}
         <li>
-          <span className={hasTrack ? styles.swatchReal : styles.swatchNone} aria-hidden="true" />{" "}
-          {hasTrack ? "Real · GNSS position + logged altitude" : "Real · altitude only, no position logged"}
+          <span className={hasTrack ? styles.swatchReal : styles.swatchDot} aria-hidden="true" />{" "}
+          {hasTrack ? "Real · GNSS position + logged altitude" : "Real · logged altitude, on the pad ruler"}
+        </li>
+        <li>
+          <span className={styles.swatchGap} aria-hidden="true" /> Apogee gap · real − model
         </li>
       </ul>
     </section>
