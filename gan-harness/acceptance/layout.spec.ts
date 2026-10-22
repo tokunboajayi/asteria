@@ -16,12 +16,16 @@ import { expect, test, type Page } from "@playwright/test";
 const SIZES = [
   { name: "desktop", width: 1440, height: 1000 },
   { name: "laptop", width: 1280, height: 720 },
+  // 1888 px screen at 150% display scaling: three columns just fit.
+  { name: "scaled laptop", width: 1258, height: 670 },
   { name: "small laptop", width: 1024, height: 768 },
   { name: "tablet", width: 768, height: 1024 },
   { name: "phone", width: 390, height: 844 },
 ] as const;
 
 const MIN_FONT_PX = 11;
+// Must match the breakpoint in web/src/components/Console.module.css.
+const CONSOLE_MODE_MIN_WIDTH = 1184;
 const MIN_GLOBE_PX = 280;
 // Boxes may touch or graze; anything beyond this many pixels in both directions is an overlap.
 const TOLERANCE_PX = 1;
@@ -131,6 +135,13 @@ for (const size of SIZES) {
 
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect.soft(scrollWidth, "no sideways page scroll").toBeLessThanOrEqual(size.width);
+
+    if (size.width >= CONSOLE_MODE_MIN_WIDTH) {
+      // Columns side by side: each scrolls on its own and the page itself never does,
+      // so no column can end early and leave empty space beside a longer one.
+      const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+      expect.soft(pageHeight, "page does not scroll; columns scroll on their own").toBeLessThanOrEqual(size.height);
+    }
 
     const globe = await page.getByTestId("globe").boundingBox();
     expect.soft(globe?.height ?? 0, "3D view keeps a usable height").toBeGreaterThanOrEqual(MIN_GLOBE_PX);
