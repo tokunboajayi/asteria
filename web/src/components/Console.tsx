@@ -6,6 +6,7 @@ import type {
   CorrectionReport,
   Debrief,
   Fleet,
+  FleetFingerprint,
   FlightDetail,
   GapMap,
   NextBest,
@@ -17,6 +18,7 @@ import { useApi, type Loadable } from "@/lib/useApi";
 import styles from "./Console.module.css";
 import { CorrectionPanel } from "./CorrectionPanel";
 import { DebriefPanel } from "./DebriefPanel";
+import { FingerprintPanel } from "./FingerprintPanel";
 import { GapMapPanel } from "./GapMapPanel";
 import { GlobeView } from "./GlobeView";
 import { NextBestPanel } from "./NextBestPanel";
@@ -24,6 +26,7 @@ import { OrbitsPanel } from "./OrbitsPanel";
 import { StatePanel } from "./StatePanel";
 import { StripCharts } from "./StripCharts";
 import { Timeline } from "./Timeline";
+import { TimingPanel } from "./TimingPanel";
 import { TopBar, type Tab } from "./TopBar";
 
 /** The whole console. Owns selection, mode and the shared cursor time; panels only render. */
@@ -38,10 +41,12 @@ export function Console() {
   const gap = useApi<GapMap>("/api/rockets/gapmap");
   const correction = useApi<CorrectionReport>("/api/rockets/correction");
   const nextBest = useApi<NextBest>("/api/rockets/nextbest");
+  const fingerprint = useApi<FleetFingerprint>("/api/rockets/fingerprint");
   const orbits = useApi<OrbitsStatus>("/api/orbits/status");
 
   const [mode, setMode] = useState<Mode>("physics");
   const [cursor, setCursor] = useState(0);
+  const [replay, setReplay] = useState(false);
 
   const ready = detail.state === "ready" && detail.data.summary.id === selectedId ? detail.data : null;
   const span = useMemo(() => (ready ? { start: flightStart(ready), end: flightEnd(ready) } : null), [ready]);
@@ -52,6 +57,7 @@ export function Console() {
   if (ready && cursorFlight !== ready.summary.id) {
     setCursorFlight(ready.summary.id);
     setCursor(liftoff);
+    setReplay(false);
   }
 
   return (
@@ -77,10 +83,13 @@ export function Console() {
           onMode={setMode}
           cursor={cursor}
           onCursor={setCursor}
+          replay={replay}
+          onReplay={setReplay}
           debrief={debrief}
           gap={gap}
           correction={correction}
           nextBest={nextBest}
+          fingerprint={fingerprint}
         />
       )}
     </div>
@@ -96,10 +105,13 @@ interface RocketsViewProps {
   onMode: (m: Mode) => void;
   cursor: number;
   onCursor: (t: number) => void;
+  replay: boolean;
+  onReplay: (on: boolean) => void;
   debrief: Loadable<Debrief>;
   gap: Loadable<GapMap>;
   correction: Loadable<CorrectionReport>;
   nextBest: Loadable<NextBest>;
+  fingerprint: Loadable<FleetFingerprint>;
 }
 
 function RocketsView(p: RocketsViewProps) {
@@ -116,14 +128,23 @@ function RocketsView(p: RocketsViewProps) {
     <div className={styles.grid}>
       <aside className={styles.left} aria-label="Vehicle state">
         <StatePanel detail={detail} mode={p.mode} onMode={p.onMode} cursor={p.cursor} />
+        <TimingPanel detail={detail} onCursor={p.onCursor} />
       </aside>
       <main className={styles.center}>
-        <GlobeView detail={detail} mode={p.mode} cursor={p.cursor} />
+        <GlobeView detail={detail} mode={p.mode} cursor={p.cursor} replay={p.replay} />
         <StripCharts detail={detail} mode={p.mode} cursor={p.cursor} span={span} onCursor={p.onCursor} />
-        <Timeline detail={detail} span={span} cursor={p.cursor} onCursor={p.onCursor} />
+        <Timeline
+          detail={detail}
+          span={span}
+          cursor={p.cursor}
+          onCursor={p.onCursor}
+          replay={p.replay}
+          onReplay={p.onReplay}
+        />
       </main>
       <aside className={styles.right} aria-label="Analysis">
         <CorrectionPanel report={p.correction} flightId={detail.summary.id} />
+        <FingerprintPanel fingerprint={p.fingerprint} flightId={detail.summary.id} />
         <GapMapPanel gap={p.gap} flightId={detail.summary.id} />
         <DebriefPanel debrief={p.debrief} flightId={detail.summary.id} />
         <NextBestPanel nextBest={p.nextBest} />

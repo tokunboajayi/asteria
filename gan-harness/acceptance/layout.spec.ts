@@ -159,3 +159,17 @@ test("no overlapping text with GNSS track and correction applied", async ({ page
   await page.waitForTimeout(800);
   expect(overlaps(await textBoxes(page)), "no overlapping text").toEqual([]);
 });
+
+for (const size of [SIZES[1], SIZES[4]]) {
+  test(`mission replay HUD fits at ${size.name} ${size.width}×${size.height}`, async ({ page }) => {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await openConsole(page, "prometheus-2022");
+    await page.getByTestId("mission-replay").click();
+    await expect(page.getByTestId("replay-hud")).toBeVisible();
+    await page.waitForTimeout(4000); // into the burn: a callout is up
+    await expect(page.getByTestId("replay-hud")).toContainText(/Boost|Coast/);
+    expect(overlaps(await textBoxes(page)), "no overlapping text during replay").toEqual([]);
+    await page.getByTestId("mission-replay").click();
+    await expect(page.getByTestId("replay-hud")).toHaveCount(0);
+  });
+}

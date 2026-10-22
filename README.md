@@ -31,6 +31,43 @@ correction does not transfer between rockets.** Each rocket's error is its
 own. The correction model was fixed before any result was seen and no other
 model was tried afterwards, so the result is not tuned to the data.
 
+### Event timing detective
+
+Code finds what really happened in each log and times it against the ghost,
+measuring every event the same way on both: the end of thrust (accelerometer
+flights), the speed peak, apogee, the final parachute opening (a two-line
+changepoint on the descent) and the descent rate under each parachute.
+Sensors are cross-checked: no barometric altitude is reported near Mach 1, and
+a speed peak that comes after the accelerometer shows deceleration is rejected.
+Anything the data cannot support is left blank with its reason. Examples:
+Prometheus's main parachute opened 1.6 s early and 41 m higher than modelled;
+NDRT's 9.9 s late; Andromeda came down at 7.9 m/s from apogee in one phase,
+where the ghost expected 22.4 m/s under its drogue.
+
+### Motor & drag fingerprint (exploratory)
+
+On the four flights with an accelerometer, the console compares what the real
+sensor felt with what the ghost's simulated sensor felt over identical windows:
+speed gained in the burn and drag in early coast (real ÷ ghost). Accelerometers
+are used only after their zero is verified from the data: the pad reading and
+coast-drag physics must agree on whether the logger removed gravity.
+Lince's burn added 19 % more speed than modelled with 6 % less coast drag (it
+flew 384 m higher); GENESIS felt 17 % more drag (128 m lower).
+
+**Tried and rejected:** splitting each apogee miss into metres "from the motor"
+and "from drag". Fitting thrust and drag factors to altitude, and later solving
+them from the accelerometer, both gave unstable, compensating answers: the
+effects are a few per cent, the size of an accelerometer calibration error.
+Those numbers would have been guesses, so they are not shown.
+
+### Mission replay
+
+One button replays the flight like mission control: 1× through the burn, 4× in
+coast, 16× under parachutes; the 3D camera rides with the rocket; a readout
+shows the clock, phase, ghost vs real altitude and speed, and each event as it
+happens, with its measured real-vs-ghost timing. Near Mach 1 the readout warns
+that the real altimeter can misread.
+
 ## Run it (Windows, PowerShell)
 
 You need **Git**, **Node.js 20+** and **uv** (which installs Python for you):
@@ -122,17 +159,19 @@ docs/contrast.md                       computed WCAG contrast for every text col
    used (no log published, live web services, a broken data path, and one hybrid
    motor too expensive to rebuild as published); the reasons are in the console's
    provenance panel.
-7. **Every debrief number is checked.** A sentence may only contain numbers from
+7. **Sensors are verified before use.** An accelerometer's zero is checked from
+   the data; altimeter readings near Mach 1 are never presented as measured.
+8. **Every debrief number is checked.** A sentence may only contain numbers from
    the facts it cites; otherwise it is rejected, never repaired.
-8. **Independent acceptance tests** re-read the raw files themselves (without
+9. **Independent acceptance tests** re-read the raw files themselves (without
    importing the engine) and compare them with what the API serves.
-9. **Rebuilds are reproducible.** RocketPy's parachute trigger noise is
+10. **Rebuilds are reproducible.** RocketPy's parachute trigger noise is
    drawn from a fixed seed, so a fresh build matches the shipped artifacts.
 
 ## Checks
 
 ```powershell
-cd engine;  uv run ruff check . ; uv run mypy src ; uv run pytest      # 93 unit tests
+cd engine;  uv run ruff check . ; uv run mypy src ; uv run pytest      # 109 unit tests
 cd web;     npm run typecheck ; npm run lint
 # Acceptance (API and console running):
 $env:API_URL="http://127.0.0.1:8000"; $env:ASTERIA_SOURCE_DIR="..\.asteria\cache\rocketpy-9bd6ad3af8f9"

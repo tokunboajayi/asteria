@@ -227,6 +227,61 @@ SPACETRACK_FILE = (
 )
 
 
+def _interp(xs: list[float], ys: list[float], x: float) -> float:
+    for i in range(1, len(xs)):
+        if xs[i] >= x:
+            f = (x - xs[i - 1]) / (xs[i] - xs[i - 1])
+            return ys[i - 1] + f * (ys[i] - ys[i - 1])
+    return ys[-1]
+
+
+def test_event_timing_is_self_consistent_and_never_shows_transonic_altitude(
+    details: dict[str, dict[str, Any]],
+) -> None:
+    for fid, d in details.items():
+        shift = d["delta"]["real_time_shift_s"]
+        g = d["ghost"]
+        for e in d["timing"]["events"]:
+            where = f"{fid}/{e['key']}"
+            if e["status"] == "detected":
+                assert e["real_t"] is not None, where
+                assert e["delta_t_s"] == pytest.approx(e["real_t"] - e["ghost_t"], abs=2e-3), where
+                mach = _interp(g["t"], g["mach"], e["real_t"])
+                if 0.8 <= mach <= 1.2:
+                    shown = e["real_altitude_m"]
+                    assert shown is None, f"{where}: altitude shown at Mach {mach:.2f}"
+            else:
+                assert e["real_t"] is None and e["note"], f"{where}: not detected without a reason"
+        apogee = next(e for e in d["timing"]["events"] if e["key"] == "apogee")
+        assert apogee["real_t"] - shift == pytest.approx(
+            d["summary"]["apogee"]["real_time_s"], abs=0.01
+        ), fid
+
+
+def test_fingerprint_only_from_verified_accelerometers(
+    client: httpx.Client, details: dict[str, dict[str, Any]]
+) -> None:
+    fp = client.get("/api/rockets/fingerprint").json()
+    rows = {r["id"]: r for r in fp["rows"]}
+    assert set(rows) == set(details)
+    assert "rejected" in fp["not_attempted"]
+    for fid, d in details.items():
+        f = rows[fid]["fingerprint"]
+        has_accel = "accel_logged" in d["real"]["channels"]
+        verified = (d["timing"]["accelerometer"] or "").startswith("Gravity")
+        if f["status"] == "measured":
+            assert has_accel and verified, fid
+            assert f["burn_ratio"] == pytest.approx(
+                f["burn_gain_real_mps"] / f["burn_gain_ghost_mps"], rel=2e-3
+            ), fid
+            assert f["coast_drag_ratio"] == pytest.approx(
+                f["coast_decel_real_mps2"] / f["coast_decel_ghost_mps2"], rel=2e-3
+            ), fid
+        else:
+            assert f["reason"], fid
+        assert d["fingerprint"] == f, f"{fid}: flight and fleet fingerprints differ"
+
+
 def _orbits_or_skip(client: httpx.Client) -> dict[str, Any]:
     status = client.get("/api/orbits/status").json()
     if not status["available"]:

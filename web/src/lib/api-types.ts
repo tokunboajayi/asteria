@@ -89,6 +89,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rockets/fingerprint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Fingerprint
+         * @description Exploratory: burn and coast accelerometer readings, real ÷ ghost, per flight.
+         */
+        get: operations["fleet_fingerprint_api_rockets_fingerprint_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/rockets/fleet": {
         parameters: {
             query?: never;
@@ -352,6 +372,21 @@ export interface components {
             /** Vz */
             vz: (number | null)[];
         };
+        /** DescentRate */
+        DescentRate: {
+            /**
+             * Ghost Mps
+             * @description Median vertical velocity, m/s (negative = down); null for a real-only row.
+             */
+            ghost_mps: number | null;
+            /** Phase */
+            phase: string;
+            /**
+             * Real Mps
+             * @description Slope of the fitted descent segment, m/s.
+             */
+            real_mps: number | null;
+        };
         /** Diagnostics */
         Diagnostics: {
             /**
@@ -408,6 +443,18 @@ export interface components {
             /** T */
             t: number;
         };
+        /** EventTiming */
+        EventTiming: {
+            /**
+             * Accelerometer
+             * @description How the logged accelerometer was read (gravity convention, evidence), or why it was not used; null when the log has none.
+             */
+            accelerometer: string | null;
+            /** Descent */
+            descent: components["schemas"]["DescentRate"][];
+            /** Events */
+            events: components["schemas"]["TimedEvent"][];
+        };
         /** Excluded */
         Excluded: {
             /** Notebook */
@@ -433,6 +480,69 @@ export interface components {
             /** Value */
             value: number;
         };
+        /**
+         * Fingerprint
+         * @description Exploratory: real ÷ ghost accelerometer readings for the burn and the coast.
+         */
+        Fingerprint: {
+            /** Burn Gain Ghost Mps */
+            burn_gain_ghost_mps: number | null;
+            /**
+             * Burn Gain Real Mps
+             * @description ∫ axial specific force over the burn.
+             */
+            burn_gain_real_mps: number | null;
+            /**
+             * Burn Ratio
+             * @description real ÷ ghost speed gained in the burn
+             */
+            burn_ratio: number | null;
+            /**
+             * Burn Window S
+             * @description Ghost clock.
+             */
+            burn_window_s: [
+                number,
+                number
+            ] | null;
+            /** Coast Decel Ghost Mps2 */
+            coast_decel_ghost_mps2: number | null;
+            /**
+             * Coast Decel Real Mps2
+             * @description Mean axial specific force in coast.
+             */
+            coast_decel_real_mps2: number | null;
+            /**
+             * Coast Drag Ratio
+             * @description real ÷ ghost coast deceleration
+             */
+            coast_drag_ratio: number | null;
+            /**
+             * Coast Window S
+             * @description Ghost clock.
+             */
+            coast_window_s: [
+                number,
+                number
+            ] | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "measured" | "not_measured";
+        };
+        /** FingerprintRow */
+        FingerprintRow: {
+            fingerprint: components["schemas"]["Fingerprint"];
+            /** Ghost Error Pct */
+            ghost_error_pct: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** Fleet */
         Fleet: {
             /** Excluded */
@@ -440,6 +550,15 @@ export interface components {
             /** Flights */
             flights: components["schemas"]["FlightSummary"][];
             provenance: components["schemas"]["FleetProvenance"];
+        };
+        /** FleetFingerprint */
+        FleetFingerprint: {
+            /** Method */
+            method: string;
+            /** Not Attempted */
+            not_attempted: string;
+            /** Rows */
+            rows: components["schemas"]["FingerprintRow"][];
         };
         /** FleetProvenance */
         FleetProvenance: {
@@ -463,10 +582,12 @@ export interface components {
             diagnostics: components["schemas"]["Diagnostics"];
             /** Events */
             events: components["schemas"]["Event"][];
+            fingerprint: components["schemas"]["Fingerprint"];
             ghost: components["schemas"]["GhostSeries"];
             provenance: components["schemas"]["Provenance"];
             real: components["schemas"]["RealSeries"];
             summary: components["schemas"]["FlightSummary"];
+            timing: components["schemas"]["EventTiming"];
         };
         /** FlightSummary */
         FlightSummary: {
@@ -922,6 +1043,58 @@ export interface components {
             /** Quiet Start */
             quiet_start: string | null;
         };
+        /**
+         * TimedEvent
+         * @description One event measured the same way on the ghost and on the real log (ghost clock).
+         */
+        TimedEvent: {
+            /**
+             * Delta Altitude M
+             * @description real − ghost
+             */
+            delta_altitude_m: number | null;
+            /**
+             * Delta T S
+             * @description real − ghost
+             */
+            delta_t_s: number | null;
+            /**
+             * Ghost Altitude M
+             * @description m AGL
+             */
+            ghost_altitude_m: number;
+            /** Ghost T */
+            ghost_t: number;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "thrust_end" | "peak_vz" | "apogee" | "final_deploy";
+            /**
+             * Method
+             * @description How the event is detected, identically for ghost and real.
+             */
+            method: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @description Why it was not detected, or a caveat on the timing.
+             */
+            note: string | null;
+            /** Real Altitude M */
+            real_altitude_m: number | null;
+            /**
+             * Real T
+             * @description Ghost clock; null when not detected.
+             */
+            real_t: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "detected" | "not_detected";
+        };
         /** Validation */
         Validation: {
             /** Notes */
@@ -1049,6 +1222,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CorrectionReport"];
+                };
+            };
+        };
+    };
+    fleet_fingerprint_api_rockets_fingerprint_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetFingerprint"];
                 };
             };
         };

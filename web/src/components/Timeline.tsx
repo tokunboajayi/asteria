@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FlightDetail } from "@/lib/api";
 import { timelineEvents } from "@/lib/flightView";
 import { fmtMet, fmtNum } from "@/lib/format";
+import { replayRate } from "@/lib/replay";
 
 import styles from "./Timeline.module.css";
 
@@ -15,10 +16,12 @@ interface Props {
   span: { start: number; end: number };
   cursor: number;
   onCursor: (t: number) => void;
+  replay: boolean;
+  onReplay: (on: boolean) => void;
 }
 
 /** Event chips on the shared clock, a scrubber, and real-time replay at 1×/4×/16×. */
-export function Timeline({ detail, span, cursor, onCursor }: Props) {
+export function Timeline({ detail, span, cursor, onCursor, replay, onReplay }: Props) {
   const events = timelineEvents(detail);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(4);
@@ -32,11 +35,14 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
     let frame = 0;
     let last = performance.now();
     const step = (now: number) => {
-      const next = cursorRef.current + ((now - last) / 1000) * speed;
+      // Mission replay compresses time by phase; normal play uses the chosen speed.
+      const rate = replay ? replayRate(detail, cursorRef.current) : speed;
+      const next = cursorRef.current + ((now - last) / 1000) * rate;
       last = now;
       if (next >= span.end) {
         onCursor(span.end);
         setPlaying(false);
+        onReplay(false);
         return;
       }
       onCursor(next);
@@ -44,7 +50,13 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [playing, speed, span.end, onCursor]);
+  }, [playing, speed, span.end, onCursor, replay, detail, onReplay]);
+
+  /** Any manual control ends a mission replay. */
+  const manual = (t: number) => {
+    if (replay) onReplay(false);
+    onCursor(t);
+  };
 
   const pct = (t: number) => ((t - span.start) / (span.end - span.start)) * 100;
   return (
@@ -54,6 +66,7 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
         className={styles.play}
         aria-label={playing ? "Pause replay" : "Play replay"}
         onClick={() => {
+          if (playing && replay) onReplay(false);
           if (!playing && cursor >= span.end) onCursor(span.start);
           setPlaying((p) => !p);
         }}
@@ -90,7 +103,7 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
           max={span.end}
           step={0.05}
           value={cursor}
-          onChange={(e) => onCursor(Number(e.target.value))}
+          onChange={(e) => manual(Number(e.target.value))}
         />
         <ol className={styles.events} aria-label="Jump to event">
           {events.map((e) => (
@@ -99,7 +112,7 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
                 type="button"
                 className={e.source === "real" ? styles.eventReal : styles.event}
                 title={`${e.detail} (${e.source})`}
-                onClick={() => onCursor(e.t)}
+                onClick={() => manual(e.t)}
               >
                 {e.name} <span className={styles.eventTime}>T+{fmtNum(e.t, 1)}</span>
               </button>
@@ -108,14 +121,35 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
         </ol>
       </div>
       <div className={styles.readout}>{fmtMet(cursor)}</div>
+      <button
+        type="button"
+        className={replay ? styles.replayOn : styles.replay}
+        aria-pressed={replay}
+        data-testid="mission-replay"
+        onClick={() => {
+          if (replay) {
+            onReplay(false);
+            setPlaying(false);
+            return;
+          }
+          onCursor(Math.max(span.start, detail.diagnostics.ghost_liftoff_s - 2));
+          onReplay(true);
+          setPlaying(true);
+        }}
+      >
+        {replay ? "Stop replay" : "Mission replay"}
+      </button>
       <div role="group" aria-label="Replay speed" className={styles.speeds}>
         {SPEEDS.map((s) => (
           <button
             key={s}
             type="button"
-            aria-pressed={speed === s}
-            className={speed === s ? styles.speedOn : styles.speed}
-            onClick={() => setSpeed(s)}
+            aria-pressed={!replay && speed === s}
+            className={!replay && speed === s ? styles.speedOn : styles.speed}
+            onClick={() => {
+              if (replay) onReplay(false);
+              setSpeed(s);
+            }}
           >
             {s}×
           </button>

@@ -20,6 +20,7 @@ import {
   Ion,
   LabelStyle,
   Math as CesiumMath,
+  Matrix4,
   PolylineDashMaterialProperty,
   UrlTemplateImageryProvider,
   VerticalOrigin,
@@ -83,13 +84,22 @@ interface Props {
   detail: FlightDetail;
   mode: Mode;
   cursor: number;
+  /** Mission replay: the camera rides with the rocket instead of holding the overview. */
+  follow: boolean;
 }
 
-export function Globe({ detail, mode, cursor }: Props) {
+// Follow-camera distance: close on the pad, pulling back as the rocket climbs.
+const FOLLOW_MIN_M = 600;
+const FOLLOW_MAX_M = 6000;
+const FOLLOW_BASE_M = 450;
+const FOLLOW_PER_M = 0.9;
+
+export function Globe({ detail, mode, cursor, follow }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const markers = useRef<Markers>(NO_MARKERS);
   const rulerSite = useRef<LatLon | null>(null);
+  const frame = useRef<(() => void) | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   // One viewer for the life of the component.
@@ -156,15 +166,18 @@ export function Globe({ detail, mode, cursor }: Props) {
     const ruler = buildRuler(detail, mode, fmtM);
     const padTop = Cartesian3.fromDegrees(site.longitude_deg, site.latitude_deg, elevation + ruler.top);
     const sphere = BoundingSphere.fromPoints([...ghostPositions, ...trackPositions, padTop]);
-    viewer.camera.flyToBoundingSphere(sphere, {
-      duration: 0,
-      offset: new HeadingPitchRange(
-        CesiumMath.toRadians(-60),
-        CesiumMath.toRadians(-10),
-        // The panel is wide and short, so its vertical field of view is the narrow one (~30°).
-        Math.max(sphere.radius * 3.8, 1500),
-      ),
-    });
+    frame.current = () =>
+      viewer.camera.flyToBoundingSphere(sphere, {
+        duration: 0,
+        offset: new HeadingPitchRange(
+          CesiumMath.toRadians(-60),
+          CesiumMath.toRadians(-10),
+          // The panel is wide and short, so its vertical field of view is the narrow one (~30°).
+          Math.max(sphere.radius * 3.8, 1500),
+        ),
+      });
+    viewer.camera.lookAtTransform(Matrix4.IDENTITY);
+    frame.current();
     // The ruler stands just to the camera's right of the pad, so the flight paths never hide it.
     rulerSite.current = beside(viewer, site.latitude_deg, site.longitude_deg, elevation, ruler.top * 0.18);
     addRuler(viewer, ruler, rulerSite.current, elevation);
@@ -201,12 +214,29 @@ export function Globe({ detail, mode, cursor }: Props) {
         ]);
       }
     }
+    if (follow && p) {
+      const agl = p.height - elevation;
+      const range = Math.min(FOLLOW_MAX_M, Math.max(FOLLOW_MIN_M, FOLLOW_BASE_M + FOLLOW_PER_M * agl));
+      viewer.camera.lookAt(
+        Cartesian3.fromDegrees(p.lon, p.lat, p.height),
+        new HeadingPitchRange(CesiumMath.toRadians(-60), CesiumMath.toRadians(-12), range),
+      );
+    }
     place(m.real, realAt(detail, cursor));
     const realAgl = realAltitudeAt(detail, cursor);
     const at = rulerSite.current;
     place(m.realOnRuler, realAgl === null || !at ? null : { ...at, height: elevation + realAgl });
     viewer.scene.requestRender();
-  }, [detail, mode, cursor]);
+  }, [detail, mode, cursor, follow]);
+
+  // Replay over: release the camera and return to the overview.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (follow || !viewer) return;
+    viewer.camera.lookAtTransform(Matrix4.IDENTITY);
+    frame.current?.();
+    viewer.scene.requestRender();
+  }, [follow]);
 
   if (failure) {
     return (

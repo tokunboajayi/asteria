@@ -348,6 +348,46 @@
         "title": "DeltaSeries",
         "type": "object"
       },
+      "DescentRate": {
+        "additionalProperties": false,
+        "properties": {
+          "ghost_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Median vertical velocity, m/s (negative = down); null for a real-only row.",
+            "title": "Ghost Mps"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "real_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Slope of the fitted descent segment, m/s.",
+            "title": "Real Mps"
+          }
+        },
+        "required": [
+          "phase",
+          "ghost_mps",
+          "real_mps"
+        ],
+        "title": "DescentRate",
+        "type": "object"
+      },
       "Diagnostics": {
         "additionalProperties": false,
         "properties": {
@@ -464,6 +504,44 @@
         "title": "Event",
         "type": "object"
       },
+      "EventTiming": {
+        "additionalProperties": false,
+        "properties": {
+          "accelerometer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the logged accelerometer was read (gravity convention, evidence), or why it was not used; null when the log has none.",
+            "title": "Accelerometer"
+          },
+          "descent": {
+            "items": {
+              "$ref": "#/components/schemas/DescentRate"
+            },
+            "title": "Descent",
+            "type": "array"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TimedEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events",
+          "descent",
+          "accelerometer"
+        ],
+        "title": "EventTiming",
+        "type": "object"
+      },
       "Excluded": {
         "additionalProperties": false,
         "properties": {
@@ -523,6 +601,187 @@
         "title": "Fact",
         "type": "object"
       },
+      "Fingerprint": {
+        "additionalProperties": false,
+        "description": "Exploratory: real \u00f7 ghost accelerometer readings for the burn and the coast.",
+        "properties": {
+          "burn_gain_ghost_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Burn Gain Ghost Mps"
+          },
+          "burn_gain_real_mps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "\u222b axial specific force over the burn.",
+            "title": "Burn Gain Real Mps"
+          },
+          "burn_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "real \u00f7 ghost speed gained in the burn",
+            "title": "Burn Ratio"
+          },
+          "burn_window_s": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ghost clock.",
+            "title": "Burn Window S"
+          },
+          "coast_decel_ghost_mps2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coast Decel Ghost Mps2"
+          },
+          "coast_decel_real_mps2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mean axial specific force in coast.",
+            "title": "Coast Decel Real Mps2"
+          },
+          "coast_drag_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "real \u00f7 ghost coast deceleration",
+            "title": "Coast Drag Ratio"
+          },
+          "coast_window_s": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ghost clock.",
+            "title": "Coast Window S"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "measured",
+              "not_measured"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "burn_gain_real_mps",
+          "burn_gain_ghost_mps",
+          "burn_ratio",
+          "coast_decel_real_mps2",
+          "coast_decel_ghost_mps2",
+          "coast_drag_ratio",
+          "burn_window_s",
+          "coast_window_s",
+          "reason"
+        ],
+        "title": "Fingerprint",
+        "type": "object"
+      },
+      "FingerprintRow": {
+        "additionalProperties": false,
+        "properties": {
+          "fingerprint": {
+            "$ref": "#/components/schemas/Fingerprint"
+          },
+          "ghost_error_pct": {
+            "title": "Ghost Error Pct",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "ghost_error_pct",
+          "fingerprint"
+        ],
+        "title": "FingerprintRow",
+        "type": "object"
+      },
       "Fleet": {
         "additionalProperties": false,
         "properties": {
@@ -550,6 +809,33 @@
           "provenance"
         ],
         "title": "Fleet",
+        "type": "object"
+      },
+      "FleetFingerprint": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "not_attempted": {
+            "title": "Not Attempted",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/FingerprintRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "not_attempted",
+          "rows"
+        ],
+        "title": "FleetFingerprint",
         "type": "object"
       },
       "FleetProvenance": {
@@ -618,6 +904,9 @@
             "title": "Events",
             "type": "array"
           },
+          "fingerprint": {
+            "$ref": "#/components/schemas/Fingerprint"
+          },
           "ghost": {
             "$ref": "#/components/schemas/GhostSeries"
           },
@@ -629,6 +918,9 @@
           },
           "summary": {
             "$ref": "#/components/schemas/FlightSummary"
+          },
+          "timing": {
+            "$ref": "#/components/schemas/EventTiming"
           }
         },
         "required": [
@@ -639,6 +931,8 @@
           "real",
           "delta",
           "events",
+          "timing",
+          "fingerprint",
           "diagnostics"
         ],
         "title": "FlightDetail",
@@ -1990,6 +2284,122 @@
         "title": "StormInfo",
         "type": "object"
       },
+      "TimedEvent": {
+        "additionalProperties": false,
+        "description": "One event measured the same way on the ghost and on the real log (ghost clock).",
+        "properties": {
+          "delta_altitude_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "real \u2212 ghost",
+            "title": "Delta Altitude M"
+          },
+          "delta_t_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "real \u2212 ghost",
+            "title": "Delta T S"
+          },
+          "ghost_altitude_m": {
+            "description": "m AGL",
+            "title": "Ghost Altitude M",
+            "type": "number"
+          },
+          "ghost_t": {
+            "title": "Ghost T",
+            "type": "number"
+          },
+          "key": {
+            "enum": [
+              "thrust_end",
+              "peak_vz",
+              "apogee",
+              "final_deploy"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "method": {
+            "description": "How the event is detected, identically for ghost and real.",
+            "title": "Method",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it was not detected, or a caveat on the timing.",
+            "title": "Note"
+          },
+          "real_altitude_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Real Altitude M"
+          },
+          "real_t": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ghost clock; null when not detected.",
+            "title": "Real T"
+          },
+          "status": {
+            "enum": [
+              "detected",
+              "not_detected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "method",
+          "ghost_t",
+          "ghost_altitude_m",
+          "real_t",
+          "real_altitude_m",
+          "delta_t_s",
+          "delta_altitude_m",
+          "status",
+          "note"
+        ],
+        "title": "TimedEvent",
+        "type": "object"
+      },
       "Validation": {
         "additionalProperties": false,
         "properties": {
@@ -2154,6 +2564,25 @@
           }
         },
         "summary": "Correction Report"
+      }
+    },
+    "/api/rockets/fingerprint": {
+      "get": {
+        "description": "Exploratory: burn and coast accelerometer readings, real \u00f7 ghost, per flight.",
+        "operationId": "fleet_fingerprint_api_rockets_fingerprint_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetFingerprint"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Fleet Fingerprint"
       }
     },
     "/api/rockets/fleet": {

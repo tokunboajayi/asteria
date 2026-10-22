@@ -19,6 +19,11 @@ export type OrbitObjectSummary = components["schemas"]["OrbitObjectSummary"];
 export type GapSeries = components["schemas"]["GapSeries"];
 export type SpaceWeatherSeries = components["schemas"]["SpaceWeatherSeries"];
 export type Provenance = components["schemas"]["Provenance"];
+export type EventTiming = components["schemas"]["EventTiming"];
+export type TimedEvent = components["schemas"]["TimedEvent"];
+export type DescentRate = components["schemas"]["DescentRate"];
+export type Fingerprint = components["schemas"]["Fingerprint"];
+export type FleetFingerprint = components["schemas"]["FleetFingerprint"];
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 

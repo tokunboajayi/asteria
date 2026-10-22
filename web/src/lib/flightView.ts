@@ -145,14 +145,17 @@ export function charts(detail: FlightDetail, mode: Mode): Charts {
   };
 }
 
+/** Ghost events plus every real event the engine detected from the log (ghost clock). */
 export function timelineEvents(detail: FlightDetail): FlightEvent[] {
-  const realApogee: FlightEvent = {
-    name: "Apogee (real)",
-    t: detail.summary.apogee.real_time_s + detail.delta.real_time_shift_s,
-    source: "real",
-    detail: "Peak of the published log",
-  };
-  return [...detail.events, realApogee].sort((a, b) => a.t - b.t);
+  const real: FlightEvent[] = detail.timing.events
+    .filter((e) => e.status === "detected" && e.real_t !== null)
+    .map((e) => ({
+      name: `${e.name} (real)`,
+      t: e.real_t as number,
+      source: "real",
+      detail: e.method,
+    }));
+  return [...detail.events, ...real].sort((a, b) => a.t - b.t);
 }
 
 export function flightEnd(detail: FlightDetail): number {

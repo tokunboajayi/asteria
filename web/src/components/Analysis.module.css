@@ -1,0 +1,148 @@
+/* Event timing and fingerprint panels. */
+
+.events {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 12px var(--font-mono);
+}
+
+.event {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.eventHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.eventValues {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 12px;
+  font-size: 11px;
+}
+
+.phase {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+
+.jump {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--text-strong);
+  text-align: left;
+  cursor: pointer;
+}
+
+.jump:hover {
+  color: var(--ghost-soft);
+}
+
+.noteRef {
+  margin-left: 2px;
+  font-size: 11px;
+  color: var(--gap);
+}
+
+.ghost {
+  color: var(--ghost);
+}
+
+.real {
+  color: var(--real);
+}
+
+.delta {
+  color: var(--gap);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.notes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.notes li::marker {
+  color: var(--gap);
+}
+
+/* Fingerprint scatter */
+
+.plot {
+  position: relative;
+  width: 100%;
+}
+
+.plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.axisLine {
+  stroke: #2a313c;
+  stroke-width: 1;
+}
+
+.unity {
+  stroke: #3a4350;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.tick {
+  font: 11px var(--font-mono);
+  fill: var(--text-label);
+}
+
+.axisTitle {
+  font: 500 11px var(--font-mono);
+  fill: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.quadrant {
+  font: 11px var(--font-mono);
+  fill: #6f7884;
+}
+
+.point {
+  fill: var(--gap);
+  stroke: var(--bg);
+  stroke-width: 1.5;
+}
+
+.pointMine {
+  fill: var(--real);
+  stroke: var(--gap);
+  stroke-width: 2.5;
+}
+
+.pointLabel {
+  font: 500 11px var(--font-mono);
+  fill: var(--text);
+}
+
+.pointLabelMine {
+  font: 600 11px var(--font-mono);
+  fill: var(--text-strong);
+}

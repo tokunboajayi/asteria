@@ -114,6 +114,106 @@
   display: none !important;
 }
 
+/* Mission replay readout: top right, clear of the legend (top left) and badge (bottom left). */
+.hud {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 248px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgb(5 7 10 / 0.88);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--gap);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+
+.hudTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.hudClock {
+  font: 600 20px var(--font-mono);
+  color: var(--text-strong);
+}
+
+.hudPhase {
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gap);
+}
+
+.hudGrid {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.hudGrid dt {
+  color: var(--text-label);
+}
+
+.hudGrid dd {
+  margin: 0;
+  text-align: right;
+}
+
+.hudGhost {
+  color: var(--ghost);
+}
+
+.hudReal {
+  color: var(--real);
+}
+
+.hudWarn {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--gap);
+}
+
+.callout,
+.calloutReal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--ghost);
+  background: var(--panel);
+  font-size: 11px;
+  color: var(--text-dim);
+  animation: calloutIn 180ms ease-out;
+}
+
+.calloutReal {
+  border-left-color: var(--real);
+}
+
+.callout strong,
+.calloutReal strong {
+  font: 600 12px var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-strong);
+}
+
+@keyframes calloutIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 /* Map credit at the console's smallest text size. */
 .view :global(.cesium-credit-textContainer),
 .view :global(.cesium-credit-wrapper) {
@@ -136,8 +236,10 @@
     height: 300px;
   }
   .gapBadge,
-  .legend {
+  .legend,
+  .hud {
     position: static;
+    width: auto;
     margin: 0 12px;
   }
 }
