@@ -53,17 +53,45 @@ class Paths:
         return self.cache / "spacetrack"
 
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
 def env_file() -> Path:
-    """engine/.env.local: local secrets (git-ignored). Never committed."""
-    return Path(__file__).resolve().parents[2] / ".env.local"
+    """The one settings file: `<repo>/.env.local` (git-ignored, never committed).
+
+    `engine/.env.local`, the earlier location, is still read if the new file
+    does not exist yet, so an existing setup keeps working.
+    """
+    root = REPO_ROOT / ".env.local"
+    legacy = REPO_ROOT / "engine" / ".env.local"
+    return legacy if not root.is_file() and legacy.is_file() else root
+
+
+def read_dotenv(path: Path) -> dict[str, str]:
+    """KEY=value lines; blank lines and # comments ignored; surrounding quotes stripped."""
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def setting(name: str, default: str = "") -> str:
+    """A setting: the process environment first, then the settings file, then `default`."""
+    return os.environ.get(name) or read_dotenv(env_file()).get(name) or default
 
 
 def default_home() -> Path:
     """`ASTERIA_HOME` if set, else `<repo>/.asteria`."""
-    env = os.environ.get("ASTERIA_HOME")
-    if env:
-        return Path(env).expanduser().resolve()
-    return Path(__file__).resolve().parents[3] / ".asteria"
+    home = setting("ASTERIA_HOME")
+    if home:
+        return Path(home).expanduser().resolve()
+    return REPO_ROOT / ".asteria"
 
 
 def paths() -> Paths:

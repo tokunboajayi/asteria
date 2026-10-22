@@ -1,7 +1,7 @@
 """Historical element sets from Space-Track.org (US Space Force, 18th/19th SDS).
 
 Needs a free account: SPACETRACK_USER and SPACETRACK_PASSWORD, from the
-environment or engine/.env.local. The password is only ever sent to
+environment or the settings file (.env.local at the repo root). The password is only ever sent to
 Space-Track's login endpoint; it is never logged or written anywhere.
 
 Space-Track's user agreement forbids redistributing its data, so raw
@@ -26,6 +26,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from asteria.config import read_dotenv
 from asteria.provenance import sha256_file
 
 BASE = "https://www.space-track.org"
@@ -54,22 +55,9 @@ class HistoryFile:
     records: list[dict[str, Any]]
 
 
-def _dotenv(path: Path) -> dict[str, str]:
-    values: dict[str, str] = {}
-    if not path.is_file():
-        return values
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        values[key.strip()] = value.strip().strip('"').strip("'")
-    return values
-
-
 def credentials(env_file: Path) -> Credentials:
     """Environment first, then `env_file`; raise CredentialsMissing if neither has both."""
-    file_values = _dotenv(env_file)
+    file_values = read_dotenv(env_file)
     user = os.environ.get("SPACETRACK_USER") or file_values.get("SPACETRACK_USER", "")
     password = os.environ.get("SPACETRACK_PASSWORD") or file_values.get("SPACETRACK_PASSWORD", "")
     if not user or not password:

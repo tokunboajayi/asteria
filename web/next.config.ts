@@ -1,4 +1,12 @@
+import path from "node:path";
+
+import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
+
+// The one settings file lives at the Asteria root (../.env.local), shared with the engine.
+// Loaded before Next reads web/.env*, so a value there wins; NEXT_PUBLIC_ values are
+// fixed into the build, so rebuild after changing them.
+loadEnvConfig(path.resolve(process.cwd(), ".."));
 
 const nextConfig: NextConfig = {
   cacheComponents: true,

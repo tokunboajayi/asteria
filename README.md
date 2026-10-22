@@ -69,14 +69,22 @@ uv run asteria build     # fetches RocketPy v1.13.0 at its pinned commit, then b
 uv run asteria verify    # re-checks the commit and every artifact hash
 ```
 
-### Optional keys (never commit these files)
+### Settings and keys: one file
 
-| File | Variable | What it does |
-|---|---|---|
-| `web/.env.local` | `NEXT_PUBLIC_CESIUM_ION_TOKEN` | Real terrain + aerial imagery on the 3D globe. This token is sent to the browser by design: in your Cesium ion account give it only the `assets:read` scope and allow only `http://localhost:3000`. Rebuild (`npm run build`) after adding it. |
-| `engine/.env.local` | `SPACETRACK_USER`, `SPACETRACK_PASSWORD` | Unlocks Storm Ghost. Free account at space-track.org. Then run `uv run asteria build-orbits` and restart the API. |
+Every key and setting lives in **one file, `.env.local`, in this folder**.
+Copy the documented template and fill in what you need (all of it is optional):
 
-Copy `web/.env.example` and `engine/.env.example` to start.
+```powershell
+Copy-Item .env.example .env.local
+```
+
+| Variable | What it does |
+|---|---|
+| `SPACETRACK_USER`, `SPACETRACK_PASSWORD` | Unlocks Storm Ghost. Free account at space-track.org. Then run `uv run asteria build-orbits` and restart the API. |
+| `NEXT_PUBLIC_CESIUM_ION_TOKEN` | Real terrain + imagery on the 3D globe. Sent to the browser by design: give the token only the `assets:read` scope and allow only `http://localhost:3000`. Rebuild (`npm run build`) after adding it. |
+| `NEXT_PUBLIC_API_URL`, `ASTERIA_WEB_ORIGINS`, `ASTERIA_HOME` | Advanced; the defaults work. |
+
+`.env.local` is git-ignored; never commit it. A value in the system environment wins over the file.
 
 ## How it is built
 
@@ -139,7 +147,7 @@ cd web; npx playwright install chromium; npm run test:acceptance
 - **Trust boundary:** building the Rockets artifacts executes code from
   RocketPy's example notebooks. Asteria only runs it from a clean checkout of
   the pinned commit (verified by hash before every build).
-- Space-Track passwords are read from `engine/.env.local` or the environment,
+- Space-Track passwords are read from `.env.local` (repo root) or the environment,
   sent only to Space-Track's login endpoint, and never logged. Raw Space-Track
   data stays on your machine; its user agreement forbids redistribution.
 - No Content-Security-Policy is set yet: Cesium needs workers, WebAssembly and

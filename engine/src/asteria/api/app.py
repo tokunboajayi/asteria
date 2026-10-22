@@ -13,7 +13,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from asteria import __version__
 from asteria.api.store import ArtifactError, OrbitStore, RocketStore, load_orbits, load_rockets
-from asteria.config import paths
+from asteria.config import paths, setting
 from asteria.models import (
     CorrectionReport,
     Debrief,
@@ -31,7 +31,7 @@ DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 ORBITS_GATED = (
     "Storm Ghost needs historical orbit element sets from Space-Track.org (US Space Force), "
     "which require a free account. No orbit artifacts have been built yet, so nothing is shown. "
-    "Add SPACETRACK_USER and SPACETRACK_PASSWORD to engine/.env.local, then run "
+    "Add SPACETRACK_USER and SPACETRACK_PASSWORD to .env.local in the Asteria folder, then run "
     "`asteria build-orbits`."
 )
 
@@ -73,9 +73,7 @@ app = FastAPI(
 app.add_middleware(GZipMiddleware, minimum_size=2048)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        o.strip() for o in os.environ.get("ASTERIA_WEB_ORIGINS", DEFAULT_ORIGINS).split(",")
-    ],
+    allow_origins=[o.strip() for o in setting("ASTERIA_WEB_ORIGINS", DEFAULT_ORIGINS).split(",")],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
