@@ -40,8 +40,12 @@ from asteria.models import (
     DeltaSeries,
     Diagnostics,
     Event,
+    EventTiming,
     Excluded,
+    Fingerprint,
+    FingerprintRow,
     Fleet,
+    FleetFingerprint,
     FleetProvenance,
     FlightDetail,
     FlightSummary,
@@ -54,7 +58,17 @@ from asteria.models import (
     SourceFile,
 )
 from asteria.provenance import sha256_file, source_file
-from asteria.rockets import catalog, correction, debrief, ghost, notebook, real, telemetry
+from asteria.rockets import (
+    catalog,
+    correction,
+    debrief,
+    events,
+    fingerprint,
+    ghost,
+    notebook,
+    real,
+    telemetry,
+)
 
 OFFICIAL_TOLERANCE = 0.10
 TRANSONIC_CAVEAT = (
@@ -85,6 +99,8 @@ class Pass1:
     ghost_apogee_time_s: float
     max_mach: float
     events: list[Event]
+    timing: EventTiming
+    fingerprint: Fingerprint
     real: RealSeries
     real_apogee_m: float
     real_apogee_time_s: float
@@ -162,7 +178,7 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
     correction.check_reproduction(kwargs, ghost_apogee)
 
     g = ghost.sample(flight)
-    events = ghost.events(flight, g)
+    flight_events = ghost.events(flight, g)
     markdown = notebook.markdown_text(checkout / spec.notebook)
     if spec.title_quote not in markdown:
         raise IntegrityError(f"{spec.id}: title not found in notebook")
@@ -192,6 +208,37 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
     shift = ghost_lift - real_lift if real_lift is not None else 0.0
     d = real.delta(g, arrays, shift, aligned=real_lift is not None)
     coarse = clean.median_interval_s > real.COARSE_INTERVAL_S
+
+    ghost_force = ghost.axial_specific_force(flight, g.t)
+    logged_accel = arrays.extra.get("accel_logged")
+    accel: events.Accelerometer | None = None
+    accel_note: str | None = None
+    if logged_accel is not None:
+        accel, why = events.read_accelerometer(
+            arrays.t + shift, logged_accel, ghost_lift, g.t, ghost_force
+        )
+        accel_note = accel.evidence if accel is not None else why
+    ghost_track = events.Track(g.t, g.altitude, g.vz, ghost_force)
+    real_track = events.Track(
+        arrays.t + shift,
+        arrays.altitude,
+        arrays.vz,
+        None if accel is None else accel.specific_force,
+    )
+    timing = events.compare(
+        ghost_track,
+        events.GhostContext(
+            liftoff_s=ghost_lift,
+            mach=g.mach,
+            deploys=sorted(
+                ((str(p.name), float(t)) for t, p in flight.parachute_events), key=lambda d: d[1]
+            ),
+        ),
+        real_track,
+        coarse=clean.median_interval_s > real.COARSE_INTERVAL_S,
+        accelerometer_note=accel_note,
+    )
+    motor_drag = fingerprint.measure(ghost_track, real_track, ghost_lift, accel_note)
 
     rail_exit = float(flight.out_of_rail_time)
     samples = real.gap_samples(g, d, rail_exit, float(flight.apogee_time))
@@ -226,7 +273,9 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
         ghost_apogee_m=round(ghost_apogee, 3),
         ghost_apogee_time_s=round(float(flight.apogee_time), 3),
         max_mach=round(float(np.max(g.mach)), 4),
-        events=events,
+        events=flight_events,
+        timing=timing,
+        fingerprint=motor_drag,
         real=real.real_series(arrays, spec.log, int(raw.t.size), gnss, gnss_source),
         real_apogee_m=round(real_peak, 3),
         real_apogee_time_s=round(real_peak_t, 3),
@@ -375,6 +424,8 @@ def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None =
                 real=a.real,
                 delta=a.delta,
                 events=a.events,
+                timing=a.timing,
+                fingerprint=a.fingerprint,
                 diagnostics=a.diagnostics,
             )
         )
@@ -440,6 +491,22 @@ def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None =
     _write(staging / "gapmap.json", gap)
     _write(staging / "correction.json", correction.report(rows))
     _write(staging / "nextbest.json", best)
+    _write(
+        staging / "fingerprint.json",
+        FleetFingerprint(
+            method=fingerprint.METHOD,
+            not_attempted=fingerprint.NOT_ATTEMPTED,
+            rows=[
+                FingerprintRow(
+                    id=d.summary.id,
+                    name=d.summary.name,
+                    ghost_error_pct=d.summary.apogee.ghost_error_pct,
+                    fingerprint=d.fingerprint,
+                )
+                for d in details
+            ],
+        ),
+    )
     for d in details:
         _write(staging / "flights" / f"{d.summary.id}.json", d)
     for db in debriefs:

@@ -18,6 +18,7 @@ from asteria.models import (
     CorrectionReport,
     Debrief,
     Fleet,
+    FleetFingerprint,
     FlightDetail,
     GapMap,
     Health,
@@ -131,6 +132,12 @@ def correction_report(request: Request) -> CorrectionReport:
 @app.get("/api/rockets/nextbest", response_model=NextBest)
 def next_best(request: Request) -> NextBest:
     return _rockets(request).nextbest
+
+
+@app.get("/api/rockets/fingerprint", response_model=FleetFingerprint)
+def fleet_fingerprint(request: Request) -> FleetFingerprint:
+    """Exploratory: burn and coast accelerometer readings, real ÷ ghost, per flight."""
+    return _rockets(request).fingerprint
 
 
 @app.get("/api/rockets/manifest")

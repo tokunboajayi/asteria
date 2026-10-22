@@ -171,6 +171,67 @@ class Event(Model):
     detail: str
 
 
+class TimedEvent(Model):
+    """One event measured the same way on the ghost and on the real log (ghost clock)."""
+
+    key: Literal["thrust_end", "peak_vz", "apogee", "final_deploy"]
+    name: str
+    method: str = Field(description="How the event is detected, identically for ghost and real.")
+    ghost_t: float
+    ghost_altitude_m: float = Field(description="m AGL")
+    real_t: float | None = Field(description="Ghost clock; null when not detected.")
+    real_altitude_m: float | None
+    delta_t_s: float | None = Field(description="real − ghost")
+    delta_altitude_m: float | None = Field(description="real − ghost")
+    status: Literal["detected", "not_detected"]
+    note: str | None = Field(description="Why it was not detected, or a caveat on the timing.")
+
+
+class DescentRate(Model):
+    phase: str
+    ghost_mps: float | None = Field(
+        description="Median vertical velocity, m/s (negative = down); null for a real-only row."
+    )
+    real_mps: float | None = Field(description="Slope of the fitted descent segment, m/s.")
+
+
+class EventTiming(Model):
+    events: list[TimedEvent]
+    descent: list[DescentRate]
+    accelerometer: str | None = Field(
+        description="How the logged accelerometer was read (gravity convention, evidence), "
+        "or why it was not used; null when the log has none."
+    )
+
+
+class Fingerprint(Model):
+    """Exploratory: real ÷ ghost accelerometer readings for the burn and the coast."""
+
+    status: Literal["measured", "not_measured"]
+    burn_gain_real_mps: float | None = Field(description="∫ axial specific force over the burn.")
+    burn_gain_ghost_mps: float | None
+    burn_ratio: float | None = Field(description="real ÷ ghost speed gained in the burn")
+    coast_decel_real_mps2: float | None = Field(description="Mean axial specific force in coast.")
+    coast_decel_ghost_mps2: float | None
+    coast_drag_ratio: float | None = Field(description="real ÷ ghost coast deceleration")
+    burn_window_s: tuple[float, float] | None = Field(description="Ghost clock.")
+    coast_window_s: tuple[float, float] | None = Field(description="Ghost clock.")
+    reason: str | None
+
+
+class FingerprintRow(Model):
+    id: str
+    name: str
+    ghost_error_pct: float
+    fingerprint: Fingerprint
+
+
+class FleetFingerprint(Model):
+    method: str
+    not_attempted: str
+    rows: list[FingerprintRow]
+
+
 class Diagnostics(Model):
     real_t_start_s: float
     real_t_end_s: float
@@ -197,6 +258,8 @@ class FlightDetail(Model):
     real: RealSeries
     delta: DeltaSeries
     events: list[Event]
+    timing: EventTiming
+    fingerprint: Fingerprint
     diagnostics: Diagnostics
 
 

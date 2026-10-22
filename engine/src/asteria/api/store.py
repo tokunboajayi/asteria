@@ -10,6 +10,7 @@ from asteria.models import (
     CorrectionReport,
     Debrief,
     Fleet,
+    FleetFingerprint,
     FlightDetail,
     GapMap,
     NextBest,
@@ -31,6 +32,7 @@ class RocketStore:
     gapmap: GapMap
     correction: CorrectionReport
     nextbest: NextBest
+    fingerprint: FleetFingerprint
     manifest: dict[str, object]
 
 
@@ -71,6 +73,7 @@ def load_rockets(root: Path) -> RocketStore:
         gapmap=GapMap.model_validate_json(read("gapmap.json")),
         correction=CorrectionReport.model_validate_json(read("correction.json")),
         nextbest=NextBest.model_validate_json(read("nextbest.json")),
+        fingerprint=FleetFingerprint.model_validate_json(read("fingerprint.json")),
         manifest=manifest,
     )
 

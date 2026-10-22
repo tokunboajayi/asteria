@@ -83,6 +83,28 @@ def first_crossing(t: FloatArray, y: FloatArray, level: float) -> float | None:
     return float(t0 + (level - y0) * (t1 - t0) / (y1 - y0))
 
 
+STANDARD_GRAVITY = 9.80665
+
+
+def axial_specific_force(flight: Any, t: FloatArray) -> FloatArray:
+    """What an accelerometer along the flight path reads: (a − g) · v̂, m/s².
+
+    Positive while thrust exceeds drag, negative when drag decelerates the
+    rocket. Defined like this so it can be compared with a logged accelerometer.
+    """
+
+    def sample(*fns: Any) -> FloatArray:
+        return np.stack([np.asarray([f.get_value_opt(x) for x in t]) for f in fns])
+
+    a = sample(flight.ax, flight.ay, flight.az)
+    v = sample(flight.vx, flight.vy, flight.vz)
+    a[2] += STANDARD_GRAVITY
+    speed = np.linalg.norm(v, axis=0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        out = np.where(speed > 1.0, np.sum(a * v, axis=0) / speed, np.nan)
+    return np.asarray(out, dtype=np.float64)
+
+
 def apogee_agl(flight: Any) -> float:
     return float(flight.apogee - flight.env.elevation)
 
