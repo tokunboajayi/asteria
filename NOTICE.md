@@ -35,6 +35,7 @@ Asteria's own code is under the MIT licence (see LICENSE). It uses:
 
 ## Console
 
-- **CesiumJS** (Apache-2.0). Imagery without a token: © OpenStreetMap
-  contributors (ODbL). With a Cesium ion token: Cesium ion terms apply.
+- **CesiumJS** (Apache-2.0). Imagery without a token: Esri World Imagery
+  (Esri, Maxar, Earthstar Geographics), under Esri's terms of use. With a
+  Cesium ion token: Cesium ion terms apply.
 - Next.js and React (MIT); IBM Plex fonts (SIL Open Font Licence).

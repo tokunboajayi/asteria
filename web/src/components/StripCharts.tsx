@@ -117,6 +117,10 @@ interface ChartProps {
   aria: string;
 }
 
+/** Event names above the top chart: one size, used both to measure and to draw them. */
+const EVENT_LABEL_PX = 11;
+const EVENT_LANE_PX = EVENT_LABEL_PX + 3;
+
 function Chart(p: ChartProps) {
   const ref = useRef<SVGSVGElement>(null);
   const plotRef = useRef<HTMLDivElement>(null);
@@ -128,7 +132,7 @@ function Chart(p: ChartProps) {
     ? assignLanes(
         p.events,
         (ev) => (p.x(ev.t) / W) * width,
-        (ev) => monoWidth(ev.name, 9) + 6,
+        (ev) => monoWidth(ev.name, EVENT_LABEL_PX) + 6,
         2,
       )
     : [];
@@ -196,7 +200,11 @@ function Chart(p: ChartProps) {
             {names.map(({ item: ev, lane }) => (
               <span
                 key={`${ev.name}-${ev.t}`}
-                style={{ left: `${(p.x(ev.t) / W) * 100}%`, bottom: `${2 + lane * 12}px` }}
+                style={{
+                  left: `${(p.x(ev.t) / W) * 100}%`,
+                  bottom: `${2 + lane * EVENT_LANE_PX}px`,
+                  fontSize: `${EVENT_LABEL_PX}px`,
+                }}
                 className={ev.source === "real" ? styles.eventReal : undefined}
               >
                 {ev.name}

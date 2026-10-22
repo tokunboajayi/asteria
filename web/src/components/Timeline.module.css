@@ -45,13 +45,21 @@
   background: var(--real);
 }
 
+/* One row that scrolls sideways, instead of wrapping into a block of buttons.
+   The fade at the right edge says there is more to scroll to. */
 .events {
   display: flex;
-  flex-wrap: wrap;
   gap: 4px;
   margin: 2px 0 0;
-  padding: 0;
+  padding: 0 24px 4px 0;
+  overflow-x: auto;
   list-style: none;
+  scrollbar-width: thin;
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.events li {
+  flex: none;
 }
 
 .event,
@@ -61,7 +69,7 @@
   border: 1px solid #2a313c;
   border-radius: 4px;
   background: transparent;
-  font: 500 10px var(--font-mono);
+  font: 500 11px var(--font-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-dim);
@@ -85,8 +93,9 @@
 }
 
 .readout {
-  font: 500 12px var(--font-mono);
-  min-width: 84px;
+  font: 500 13px var(--font-mono);
+  min-width: 96px;
+  color: var(--text-strong);
 }
 
 .speeds {

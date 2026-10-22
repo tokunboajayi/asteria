@@ -24,6 +24,13 @@ export function StatePanel({ detail, mode, onMode, cursor }: Props) {
       <section className={styles.block}>
         <h2 className="label">Apogee AGL</h2>
         <dl className={styles.apogee}>
+          <div className={styles.gapHero}>
+            <dt className={styles.gapText}>Gap · real − ghost</dt>
+            <dd>
+              <strong data-testid="apogee-gap">{fmtSigned(s.apogee.delta_m, 0)} m</strong>
+              <span className={styles.gapNote}>ghost error {fmtPct(s.apogee.ghost_error_pct)}</span>
+            </dd>
+          </div>
           <div>
             <dt>Real (log peak)</dt>
             <dd>
@@ -35,10 +42,6 @@ export function StatePanel({ detail, mode, onMode, cursor }: Props) {
             <dd>
               <span data-testid="apogee-ghost">{fmtM(s.apogee.ghost_m)}</span> m
             </dd>
-          </div>
-          <div>
-            <dt className={styles.gapText}>Ghost error</dt>
-            <dd className={styles.gapText}>{fmtPct(s.apogee.ghost_error_pct)}</dd>
           </div>
           {s.correction && (
             <div>

@@ -6,7 +6,7 @@
 | Gate | Result |
 |------|--------|
 | Acceptance, API (local) | 8/8 pass; 2 Storm Ghost scenarios skip until orbit data exists |
-| Acceptance, UI (local, Playwright) | 4/4 pass |
+| Acceptance, UI (local, Playwright) | 10/10 pass: 4 behaviour + 6 layout (no overlapping text, no sideways scroll, 3D view height, text ≥ 11px, at 1440, 1280, 1024, 768 and 390 px wide) |
 | Engine: ruff / mypy --strict / pytest | pass / pass / 93 passed |
 | Reproducible rebuild (fresh clone, fresh fetch) | 26/26 artifacts identical apart from timestamps |
 | Web: tsc / eslint / next build | pass / pass / pass |

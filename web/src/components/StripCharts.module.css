@@ -28,7 +28,7 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  font: 400 10px var(--font-mono);
+  font: 400 11px var(--font-mono);
   color: var(--text-label);
 }
 
@@ -50,7 +50,7 @@
   position: absolute;
   top: 4px;
   left: 8px;
-  font: 500 10px var(--font-mono);
+  font: 500 11px var(--font-mono);
   color: var(--gap);
   pointer-events: none;
 }
@@ -115,7 +115,9 @@
 .eventNames span {
   position: absolute;
   transform: translateX(3px);
-  font: 500 9px var(--font-mono);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  line-height: 1;
   letter-spacing: 0; /* lanes.ts measures labels at the plain 0.6 em monospace advance */
   color: var(--text-label);
   white-space: nowrap;

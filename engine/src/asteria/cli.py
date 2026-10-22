@@ -7,8 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+from asteria.artifacts import ArtifactError, verified
 from asteria.config import paths
-from asteria.provenance import sha256_file
 
 
 def _fetch() -> Path:
@@ -36,22 +36,27 @@ def _build_orbits() -> None:
 
 
 def _verify_dir(label: str, root: Path) -> int:
-    """Re-hash one artifacts directory against its manifest; number of mismatches."""
-    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-    bad = [rel for rel, digest in manifest["files"].items() if sha256_file(root / rel) != digest]
-    for rel in bad:
-        print(f"MISMATCH {label}/{rel}", file=sys.stderr)
-    total = len(manifest["files"])
-    print(f"{label}: {total - len(bad)}/{total} artifacts verified")
-    return len(bad)
+    """Re-hash one artifacts directory against its manifest; 1 if it fails, else 0."""
+    try:
+        files = verified(root)["files"]
+    except (ArtifactError, OSError, ValueError) as exc:
+        print(f"{label}: {exc}", file=sys.stderr)
+        return 1
+    print(f"{label}: {len(files)}/{len(files)} artifacts verified")  # type: ignore[arg-type]
+    return 0
 
 
 def _verify() -> int:
     """Re-check the pinned source checkout and re-hash every built artifact."""
     from asteria.sources import rocketpy_repo
 
-    rocketpy_repo.verify(paths().rocketpy_checkout)
-    bad = _verify_dir("rockets", paths().rockets_artifacts)
+    bad = 0
+    try:
+        rocketpy_repo.verify(paths().rocketpy_checkout)
+    except rocketpy_repo.SourceIntegrityError as exc:
+        print(f"source: {exc}; run `asteria fetch`", file=sys.stderr)
+        bad = 1
+    bad += _verify_dir("rockets", paths().rockets_artifacts)
     orbits = paths().orbits_artifacts
     if (orbits / "manifest.json").is_file():
         bad += _verify_dir("orbits", orbits)

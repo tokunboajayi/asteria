@@ -85,7 +85,8 @@ engine/   Python: RocketPy + SGP4 engine, pydantic data contract, read-only Fast
 web/      Next.js 16 + React 19 console, Cesium 1.146 globe, types generated from the API
 gan-harness/
   brief.md, spec.md, eval-rubric.md   the locked brief and the pre-registered rules
-  acceptance/                          tests written before the code (API + UI)
+  acceptance/                          tests written before the code (API + UI),
+                                       plus layout checks: no overlapping text at 5 screen sizes
 docs/contrast.md                       computed WCAG contrast for every text colour
 ```
 

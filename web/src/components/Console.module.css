@@ -25,6 +25,19 @@
   flex-direction: column;
 }
 
+/* Panels keep their own height; the column scrolls instead of squashing them
+   (a squashed 3D view let its legend spill over the charts). */
+.center > * {
+  flex-shrink: 0;
+}
+
+/* When the columns stack, the flight view (globe, gap, charts, replay) comes first. */
+@media (max-width: 899px) {
+  .center {
+    order: -1;
+  }
+}
+
 .right {
   flex: 1 1 320px;
   max-width: 100%;
@@ -33,10 +46,14 @@
   flex-direction: column;
 }
 
-/* Wide screens: a fixed-height console; each column scrolls on its own, like mission control. */
-@media (min-width: 1280px) {
+/* Wide screens: a fixed-height console; each column scrolls on its own, like mission control.
+   1184px is where all three columns first fit side by side (300 + 560 + 320 px plus borders).
+   Below it they wrap, and the page scrolls as a whole; at or above it the page never scrolls,
+   so a long right column can never leave black space beside the shorter ones. */
+@media (min-width: 1184px) {
   .console {
     height: 100vh;
+    overflow: hidden;
   }
   .grid {
     flex-wrap: nowrap;
@@ -44,13 +61,32 @@
   .left,
   .center,
   .right {
+    /* relative: absolutely positioned content (e.g. screen-reader-only text) is then
+       placed and clipped inside its own column instead of growing the page. */
+    position: relative;
     overflow-y: auto;
   }
   .left {
     max-width: 360px;
   }
+  .left,
+  .right {
+    padding-bottom: 28px; /* room for the fade below, so it never covers the last line */
+  }
   .right {
     max-width: 400px;
+  }
+  /* A fade at the foot of each scrolling column says there is more below. */
+  .left::after,
+  .right::after {
+    content: "";
+    position: sticky;
+    bottom: 0;
+    display: block;
+    height: 28px;
+    margin-top: -28px;
+    background: linear-gradient(transparent, var(--bg));
+    pointer-events: none;
   }
 }
 

@@ -20,6 +20,7 @@ from typing import Any
 from scipy.optimize import brentq
 
 from asteria.models import CorrectionAggregate, CorrectionReport, CorrectionRow
+from asteria.rockets.ghost import apogee_agl
 from asteria.rockets.notebook import seed_rng
 
 K_BRACKET = (0.5, 1.5)
@@ -63,33 +64,23 @@ def resimulate(flight_kwargs: Mapping[str, Any], k: float, *, to_apogee: bool) -
         return Flight(**kwargs)
 
 
-def apogee_agl(flight: Any) -> float:
-    return float(flight.apogee - flight.env.elevation)
-
-
 @dataclass(frozen=True)
 class Calibration:
     k_own: float
     bracketed: bool
-    evaluations: int
 
 
-def check_reproduction(flight_kwargs: Mapping[str, Any], notebook_apogee_agl: float) -> float:
+def check_reproduction(flight_kwargs: Mapping[str, Any], notebook_apogee_agl: float) -> None:
     """Re-simulate at k = 1 and require the notebook's apogee back (harness fidelity)."""
     again = apogee_agl(resimulate(flight_kwargs, 1.0, to_apogee=True))
     if abs(again - notebook_apogee_agl) > REPRODUCTION_RTOL * abs(notebook_apogee_agl):
         raise RuntimeError(
             f"re-simulation at k=1 gave {again:.6f} m, notebook gave {notebook_apogee_agl:.6f} m"
         )
-    return again
 
 
 def calibrate(flight_kwargs: Mapping[str, Any], real_apogee_m: float) -> Calibration:
-    evaluations = 0
-
     def gap(k: float) -> float:
-        nonlocal evaluations
-        evaluations += 1
         return apogee_agl(resimulate(flight_kwargs, k, to_apogee=True)) - real_apogee_m
 
     lo, hi = K_BRACKET
@@ -97,9 +88,9 @@ def calibrate(flight_kwargs: Mapping[str, Any], real_apogee_m: float) -> Calibra
     if g_lo * g_hi > 0:
         # Not bracketed: the closest edge is reported as such, never extrapolated.
         k = lo if abs(g_lo) < abs(g_hi) else hi
-        return Calibration(k_own=k, bracketed=False, evaluations=evaluations)
+        return Calibration(k_own=k, bracketed=False)
     k = float(brentq(gap, lo, hi, xtol=K_XTOL))
-    return Calibration(k_own=round(k, 5), bracketed=True, evaluations=evaluations)
+    return Calibration(k_own=round(k, 5), bracketed=True)
 
 
 def held_out_k(k_own: Mapping[str, float], flight_id: str) -> float:

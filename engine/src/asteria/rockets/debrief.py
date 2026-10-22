@@ -7,51 +7,30 @@ a sentence is a fact's display string.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from asteria.core.debrief import validate
 from asteria.core.facts import FactSheet, fmt_delta_m, fmt_m, fmt_pct, fmt_plain, fmt_signed_unit
-from asteria.models import Debrief, Sentence
+from asteria.models import Debrief, Diagnostics, FlightSummary, Sentence
+from asteria.rockets.catalog import FlightSpec, metre_decimals
+from asteria.rockets.correction import error_pct
 
 
-@dataclass(frozen=True)
-class DebriefInputs:
-    flight_id: str
-    notebook: str
-    log_path: str
-    real_apogee_m: float
-    ghost_apogee_m: float
-    official_apogee_m: float | None
-    official_decimals: int
-    team_prediction_m: float | None
-    team_prediction_decimals: int
-    corrected_apogee_m: float | None
-    k_hat: float | None
-    max_mach_ghost: float
-    peak_dvz: float | None
-    peak_dvz_mach: float | None
-    peak_dvz_alt: float | None
-    liftoff_offset_s: float | None
-    median_interval_s: float
-    coarse: bool
-
-
-def _err(pred: float, real: float) -> float:
-    return (pred - real) / real * 100.0
-
-
-def build(x: DebriefInputs) -> Debrief:
+def build(
+    spec: FlightSpec,
+    summary: FlightSummary,
+    diagnostics: Diagnostics,
+    peak_dvz: tuple[float, float, float] | None,
+) -> Debrief:
+    """`peak_dvz` is (Δvz, ghost Mach, ghost altitude) at the largest ascent velocity gap."""
     sheet = FactSheet()
-    nb, log = x.notebook, x.log_path
-    f_real = sheet.add(
-        "Real apogee (max of published log)", x.real_apogee_m, "m", fmt_m(x.real_apogee_m), log
-    )
-    f_ghost = sheet.add(
-        "Ghost apogee (RocketPy reconstruction)", x.ghost_apogee_m, "m", fmt_m(x.ghost_apogee_m), nb
-    )
-    gap = x.real_apogee_m - x.ghost_apogee_m
+    nb, log = spec.notebook, spec.log.path
+    real_m, ghost_m = summary.apogee.real_m, summary.apogee.ghost_m
+    official, team = summary.official_apogee, summary.team_prediction
+    corrected = summary.correction
+    f_real = sheet.add("Real apogee (max of published log)", real_m, "m", fmt_m(real_m), log)
+    f_ghost = sheet.add("Ghost apogee (RocketPy reconstruction)", ghost_m, "m", fmt_m(ghost_m), nb)
+    gap = real_m - ghost_m
     f_gap = sheet.add("Apogee gap (real − ghost)", gap, "m", fmt_delta_m(gap), f"{log}; {nb}")
-    ghost_err = _err(x.ghost_apogee_m, x.real_apogee_m)
+    ghost_err = error_pct(ghost_m, real_m)
     f_gerr = sheet.add("Ghost apogee error", ghost_err, "%", fmt_pct(ghost_err), f"{log}; {nb}")
     sentences = [
         Sentence(
@@ -64,12 +43,12 @@ def build(x: DebriefInputs) -> Debrief:
             fact_ids=[f_real, f_ghost, f_gap, f_gerr],
         )
     ]
-    if x.official_apogee_m is not None:
+    if official is not None:
         f_off = sheet.add(
             "Official recorded apogee (flight card)",
-            x.official_apogee_m,
+            official.value_m,
             "m",
-            fmt_m(x.official_apogee_m, x.official_decimals),
+            fmt_m(official.value_m, metre_decimals(official.quote)),
             nb,
         )
         sentences.append(
@@ -80,15 +59,15 @@ def build(x: DebriefInputs) -> Debrief:
                 fact_ids=[f_off],
             )
         )
-    if x.team_prediction_m is not None:
+    if team is not None:
         f_tp = sheet.add(
             "Team pre-flight prediction (flight card)",
-            x.team_prediction_m,
+            team.value_m,
             "m",
-            fmt_m(x.team_prediction_m, x.team_prediction_decimals),
+            fmt_m(team.value_m, metre_decimals(team.quote)),
             nb,
         )
-        tp_err = _err(x.team_prediction_m, x.real_apogee_m)
+        tp_err = error_pct(team.value_m, real_m)
         f_tpe = sheet.add("Team prediction error", tp_err, "%", fmt_pct(tp_err), f"{log}; {nb}")
         sentences.append(
             Sentence(
@@ -99,12 +78,12 @@ def build(x: DebriefInputs) -> Debrief:
                 fact_ids=[f_tp, f_tpe],
             )
         )
-    if x.coarse:
+    if diagnostics.coarse_log:
         f_dt = sheet.add(
             "Median log sample interval",
-            x.median_interval_s,
+            diagnostics.median_sample_interval_s,
             "s",
-            f"{x.median_interval_s:.2f} s",
+            f"{diagnostics.median_sample_interval_s:.2f} s",
             log,
         )
         sentences.append(
@@ -117,29 +96,30 @@ def build(x: DebriefInputs) -> Debrief:
                 fact_ids=[f_dt],
             )
         )
-    elif x.peak_dvz is not None and x.peak_dvz_mach is not None and x.peak_dvz_alt is not None:
+    elif peak_dvz is not None:
+        dvz, dvz_mach, dvz_alt = peak_dvz
         f_dv = sheet.add(
             "Largest ascent velocity gap (real − ghost)",
-            x.peak_dvz,
+            dvz,
             "m/s",
-            fmt_signed_unit(x.peak_dvz, 1, "m/s"),
+            fmt_signed_unit(dvz, 1, "m/s"),
             f"{log}; {nb}",
         )
         f_dm = sheet.add(
             "Ghost Mach at the largest velocity gap",
-            x.peak_dvz_mach,
+            dvz_mach,
             "",
-            fmt_plain(x.peak_dvz_mach, 2),
+            fmt_plain(dvz_mach, 2),
             nb,
         )
         f_da = sheet.add(
             "Ghost altitude at the largest velocity gap",
-            x.peak_dvz_alt,
+            dvz_alt,
             "m",
-            fmt_m(x.peak_dvz_alt),
+            fmt_m(dvz_alt),
             nb,
         )
-        direction = "slower" if x.peak_dvz < 0 else "faster"
+        direction = "slower" if dvz < 0 else "faster"
         sentences.append(
             Sentence(
                 text=(
@@ -151,18 +131,22 @@ def build(x: DebriefInputs) -> Debrief:
                 fact_ids=[f_dv, f_dm, f_da],
             )
         )
-    if x.corrected_apogee_m is not None and x.k_hat is not None:
+    if corrected is not None:
         f_k = sheet.add(
-            "Held-out drag scale k̂", x.k_hat, "", fmt_plain(x.k_hat, 3), "correction report"
+            "Held-out drag scale k̂",
+            corrected.k_hat,
+            "",
+            fmt_plain(corrected.k_hat, 3),
+            "correction report",
         )
         f_c = sheet.add(
             "Corrected apogee (held out)",
-            x.corrected_apogee_m,
+            corrected.corrected_apogee_m,
             "m",
-            fmt_m(x.corrected_apogee_m),
+            fmt_m(corrected.corrected_apogee_m),
             "correction report",
         )
-        c_err = _err(x.corrected_apogee_m, x.real_apogee_m)
+        c_err = error_pct(corrected.corrected_apogee_m, real_m)
         f_ce = sheet.add("Corrected apogee error", c_err, "%", fmt_pct(c_err), "correction report")
         verdict = "closer to" if abs(c_err) < abs(ghost_err) else "further from"
         sentences.append(
@@ -176,12 +160,12 @@ def build(x: DebriefInputs) -> Debrief:
                 fact_ids=[f_k, f_c, f_ce, f_gerr],
             )
         )
-    if x.liftoff_offset_s is not None:
+    if diagnostics.liftoff_offset_s is not None:
         f_lo = sheet.add(
             "Liftoff clock offset (real − ghost)",
-            x.liftoff_offset_s,
+            diagnostics.liftoff_offset_s,
             "s",
-            fmt_signed_unit(x.liftoff_offset_s, 2, "s"),
+            fmt_signed_unit(diagnostics.liftoff_offset_s, 2, "s"),
             f"{log}; {nb}",
         )
         sentences.append(
@@ -203,7 +187,9 @@ def build(x: DebriefInputs) -> Debrief:
                 fact_ids=[f_real],
             )
         )
-    f_mach = sheet.add("Ghost peak Mach", x.max_mach_ghost, "", fmt_plain(x.max_mach_ghost, 2), nb)
+    f_mach = sheet.add(
+        "Ghost peak Mach", summary.max_mach_ghost, "", fmt_plain(summary.max_mach_ghost, 2), nb
+    )
     sentences.append(
         Sentence(
             text=f"The ghost's fastest point was Mach {sheet.display(f_mach)}.",
@@ -212,7 +198,7 @@ def build(x: DebriefInputs) -> Debrief:
     )
     kept, validation = validate(sentences, sheet.facts)
     return Debrief(
-        flight_id=x.flight_id,
+        flight_id=spec.id,
         facts=sheet.facts,
         sentences=kept,
         generator="template",

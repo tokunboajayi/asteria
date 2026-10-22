@@ -21,10 +21,15 @@
   color: var(--text-strong);
 }
 
+/* Row 2: the flight strip always takes its own full row, so row 1 (brand, tabs,
+   provenance) never wraps and the bar keeps the same height on every wide screen. */
 .mission {
+  order: 10;
+  flex: 1 0 100%;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: 8px 24px;
   align-items: flex-end;
 }
 
@@ -52,8 +57,12 @@
 }
 
 .value {
+  max-width: 36ch;
+  overflow: hidden;
   font: 500 13px var(--font-mono);
   color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spacer {
