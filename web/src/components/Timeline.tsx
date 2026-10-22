@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { FlightDetail } from "@/lib/api";
 import { timelineEvents } from "@/lib/flightView";
-import { fmtNum } from "@/lib/format";
+import { fmtMet, fmtNum } from "@/lib/format";
 
 import styles from "./Timeline.module.css";
 
@@ -107,7 +107,7 @@ export function Timeline({ detail, span, cursor, onCursor }: Props) {
           ))}
         </ol>
       </div>
-      <div className={styles.readout}>T+ {fmtNum(cursor, 2)} s</div>
+      <div className={styles.readout}>{fmtMet(cursor)}</div>
       <div role="group" aria-label="Replay speed" className={styles.speeds}>
         {SPEEDS.map((s) => (
           <button

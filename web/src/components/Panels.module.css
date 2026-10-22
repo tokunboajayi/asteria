@@ -37,7 +37,7 @@
 .tagNeutral {
   padding: 3px 8px;
   border-radius: 4px;
-  font: 500 10px var(--font-mono);
+  font: 500 11px var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -80,7 +80,7 @@
 .bars {
   width: 100%;
   border-collapse: collapse;
-  font: 10px var(--font-mono);
+  font: 11px var(--font-mono);
 }
 
 .bars thead th {
@@ -168,7 +168,7 @@
   border: 1px solid #2a313c;
   border-radius: 3px;
   background: transparent;
-  font: 500 9px var(--font-mono);
+  font: 500 11px var(--font-mono);
   color: var(--ghost-soft);
   vertical-align: 2px;
   cursor: help;
@@ -218,7 +218,7 @@
 .axis {
   display: flex;
   justify-content: space-between;
-  font: 9px var(--font-mono);
+  font: 11px var(--font-mono);
   color: var(--text-label);
 }
 
@@ -231,7 +231,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  font: 9px var(--font-mono);
+  font: 11px var(--font-mono);
   color: var(--text-label);
   min-width: 34px;
   text-align: right;
@@ -242,7 +242,7 @@
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  font: 10px var(--font-mono);
+  font: 11px var(--font-mono);
   color: var(--text-dim);
 }
 
@@ -284,7 +284,7 @@
 }
 
 .tile div:first-child {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-label);
 }
 

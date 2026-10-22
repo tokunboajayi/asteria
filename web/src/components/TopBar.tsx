@@ -57,7 +57,9 @@ export function TopBar({ tab, onTab, fleet, selectedId, onSelect, detail, cursor
               <Field label="Mission">
                 <span data-testid="mission-name">{summary.name}</span>
               </Field>
-              <Field label="Team">{summary.team}</Field>
+              <Field label="Team" title={summary.team}>
+                {summary.team}
+              </Field>
               <Field label="MET">{fmtMet(cursor)}</Field>
               <Field label="Site">
                 {fmtNum(summary.launch_site.latitude_deg, 4)}°, {fmtNum(summary.launch_site.longitude_deg, 4)}° ·{" "}
@@ -103,11 +105,13 @@ export function TopBar({ tab, onTab, fleet, selectedId, onSelect, detail, cursor
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, title, children }: { label: string; title?: string; children: React.ReactNode }) {
   return (
     <div className={styles.field}>
       <div className="label">{label}</div>
-      <div className={styles.value}>{children}</div>
+      <div className={styles.value} title={title}>
+        {children}
+      </div>
     </div>
   );
 }

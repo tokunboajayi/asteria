@@ -114,8 +114,30 @@
   display: none !important;
 }
 
+/* Map credit at the console's smallest text size. */
+.view :global(.cesium-credit-textContainer),
+.view :global(.cesium-credit-wrapper) {
+  font-size: 11px !important;
+}
+
+/* Narrow screens: the 3D view is too small to carry overlays, so the legend and
+   gap badge move below it instead of covering the ruler. */
 @media (max-width: 640px) {
+  .view {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+  .globe {
+    position: relative;
+    inset: auto;
+    height: 300px;
+  }
+  .gapBadge,
   .legend {
-    left: 12px;
+    position: static;
+    margin: 0 12px;
   }
 }

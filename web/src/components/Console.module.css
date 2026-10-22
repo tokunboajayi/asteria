@@ -25,6 +25,19 @@
   flex-direction: column;
 }
 
+/* Panels keep their own height; the column scrolls instead of squashing them
+   (a squashed 3D view let its legend spill over the charts). */
+.center > * {
+  flex-shrink: 0;
+}
+
+/* When the columns stack, the flight view (globe, gap, charts, replay) comes first. */
+@media (max-width: 899px) {
+  .center {
+    order: -1;
+  }
+}
+
 .right {
   flex: 1 1 320px;
   max-width: 100%;
@@ -49,8 +62,24 @@
   .left {
     max-width: 360px;
   }
+  .left,
+  .right {
+    padding-bottom: 28px; /* room for the fade below, so it never covers the last line */
+  }
   .right {
     max-width: 400px;
+  }
+  /* A fade at the foot of each scrolling column says there is more below. */
+  .left::after,
+  .right::after {
+    content: "";
+    position: sticky;
+    bottom: 0;
+    display: block;
+    height: 28px;
+    margin-top: -28px;
+    background: linear-gradient(transparent, var(--bg));
+    pointer-events: none;
   }
 }
 
