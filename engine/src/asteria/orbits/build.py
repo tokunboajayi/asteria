@@ -10,17 +10,15 @@ reason, and draws nothing.
 
 from __future__ import annotations
 
-import json
-import shutil
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
 from asteria import __version__
+from asteria.artifacts import IntegrityError, publish
 from asteria.config import Paths
 from asteria.core import gapmap
 from asteria.models import (
@@ -34,13 +32,8 @@ from asteria.models import (
     StormInfo,
 )
 from asteria.orbits import catalog, ghost, spacetrack, spaceweather
-from asteria.provenance import sha256_file
 
 OMNI_SOURCE = "NASA GSFC SPDF OMNI2 hourly (omni2_YYYY.dat)"
-
-
-class IntegrityError(RuntimeError):
-    pass
 
 
 def _iso(t: datetime) -> str:
@@ -98,11 +91,6 @@ def _gap_samples(objects: Sequence[OrbitObjectSummary]) -> list[gapmap.FlightSam
                 gapmap.FlightSamples(str(o.norad_id), np.array(xs), np.array(ys), np.array(vs))
             )
     return out
-
-
-def _write(path: Path, model: Model) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(model.model_dump_json(), encoding="utf-8")
 
 
 def build(paths: Paths, env_file: Path) -> Path:
@@ -211,23 +199,10 @@ def build(paths: Paths, env_file: Path) -> Path:
         min_flights=catalog.MIN_OBJECTS_PER_CELL,
     )
 
-    out = paths.orbits_artifacts
-    staging = out.with_name(out.name + ".staging")
-    if staging.exists():
-        shutil.rmtree(staging)
-    _write(staging / "fleet.json", fleet)
-    _write(staging / "spaceweather.json", weather)
-    _write(staging / "gapmap.json", gap)
-    manifest: dict[str, Any] = {
-        "generated_at": generated,
-        "engine_version": __version__,
-        "files": {
-            p.relative_to(staging).as_posix(): sha256_file(p)
-            for p in sorted(staging.rglob("*.json"))
-        },
+    manifest = {"generated_at": generated, "engine_version": __version__}
+    models: dict[str, Model] = {
+        "fleet.json": fleet,
+        "spaceweather.json": weather,
+        "gapmap.json": gap,
     }
-    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    if out.exists():
-        shutil.rmtree(out)
-    staging.rename(out)
-    return out
+    return publish(paths.orbits_artifacts, models, manifest)

@@ -99,7 +99,9 @@ def fetch_history(
     key = hashlib.sha256(url.encode()).hexdigest()[:16]
     path = cache / f"gp_history_{key}.json"
     meta = cache / f"gp_history_{key}.meta.json"
-    if not path.is_file() or not meta.is_file():
+    if path.is_file() and meta.is_file():
+        records = json.loads(path.read_bytes())
+    else:
         payload = _download(url, credentials(env_file))
         records = json.loads(payload)
         if not isinstance(records, list):
@@ -114,5 +116,5 @@ def fetch_history(
         path=path,
         sha256=sha256_file(path),
         downloaded_at=info["downloaded_at"],
-        records=json.loads(path.read_text(encoding="utf-8")),
+        records=records,
     )

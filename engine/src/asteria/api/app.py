@@ -12,7 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from asteria import __version__
-from asteria.api.store import ArtifactError, OrbitStore, RocketStore, load_orbits, load_rockets
+from asteria.api.store import OrbitStore, RocketStore, load_orbits, load_rockets
+from asteria.artifacts import ArtifactError
 from asteria.config import paths, setting
 from asteria.models import (
     CorrectionReport,
@@ -37,6 +38,11 @@ ORBITS_GATED = (
 )
 
 
+# A malformed manifest (JSONDecodeError) or artifacts from an older schema (pydantic's
+# ValidationError) are ValueErrors: report them as "rebuild", never stop the server.
+_LOAD_ERRORS = (ArtifactError, OSError, ValueError)
+
+
 def _artifacts_root() -> Path:
     override = os.environ.get("ASTERIA_ARTIFACTS")
     return Path(override) if override else paths().rockets_artifacts
@@ -53,14 +59,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.load_error = None
     try:
         app.state.rockets = load_rockets(_artifacts_root())
-    except ArtifactError as exc:
+    except _LOAD_ERRORS as exc:
         app.state.load_error = str(exc)
     app.state.orbits = None
     app.state.orbits_error = None
     if (_orbits_root() / "manifest.json").is_file():
         try:
             app.state.orbits = load_orbits(_orbits_root())
-        except ArtifactError as exc:
+        except _LOAD_ERRORS as exc:
             app.state.orbits_error = str(exc)
     yield
 

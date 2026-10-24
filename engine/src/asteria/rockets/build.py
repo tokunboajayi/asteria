@@ -16,27 +16,26 @@ Integrity gates that stop the build (they never downgrade to a warning):
 
 from __future__ import annotations
 
-import json
 import multiprocessing as mp
 import re
-import shutil
 import sys
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
 from asteria import __version__
+from asteria.artifacts import IntegrityError, publish
 from asteria.config import ROCKETPY_COMMIT, ROCKETPY_REPO_URL, ROCKETPY_TAG
 from asteria.core import gapmap, nextbest
 from asteria.models import (
     ApogeeSummary,
     CorrectionRow,
     CorrectionSummary,
+    Debrief,
     DeltaSeries,
     Diagnostics,
     Event,
@@ -57,7 +56,7 @@ from asteria.models import (
     RealSeries,
     SourceFile,
 )
-from asteria.provenance import sha256_file, source_file
+from asteria.provenance import source_file
 from asteria.rockets import (
     catalog,
     correction,
@@ -82,10 +81,6 @@ DERIVED_VZ_NOTE = (
 MACH_EDGES = gapmap.edges(0.0, 1.6, 0.1)
 ALT_EDGES = gapmap.edges(0.0, 4000.0, 250.0)
 _DATA_REF = re.compile(r"""["'](\.\./\.\./data/[^"']+)["']""")
-
-
-class IntegrityError(RuntimeError):
-    pass
 
 
 # ---------------------------------------------------------------------------
@@ -325,21 +320,81 @@ def run_pass3(checkout_str: str, spec_id: str, k_hat: float) -> Pass3:
 # ---------------------------------------------------------------------------
 # Assembly
 # ---------------------------------------------------------------------------
-def _write(path: Path, model: Model) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(model.model_dump_json(), encoding="utf-8")
-
-
 def _log(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
-def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None = None) -> Path:
-    specs = [s for s in catalog.FLEET if not only or s.id in only]
-    if len(specs) < 2:
-        raise ValueError("need at least two flights for held-out evaluation")
+def _flight_artifacts(
+    spec: catalog.FlightSpec, a: Pass1, c: Pass3, k_hat: float, generated_at: str
+) -> tuple[CorrectionRow, FlightSummary, FlightDetail, Debrief]:
+    """Everything one flight contributes: its correction row, summary, detail and debrief."""
+    err_before = correction.error_pct(a.ghost_apogee_m, a.real_apogee_m)
+    err_after = correction.error_pct(c.corrected_apogee_m, a.real_apogee_m)
+    corr = CorrectionSummary(
+        k_own=a.k_own,
+        k_hat=k_hat,
+        corrected_apogee_m=c.corrected_apogee_m,
+        err_before_pct=err_before,
+        err_after_pct=err_after,
+    )
+    row = CorrectionRow(
+        id=spec.id,
+        real_apogee_m=a.real_apogee_m,
+        ghost_apogee_m=a.ghost_apogee_m,
+        **corr.model_dump(),
+    )
+    summary = FlightSummary(
+        id=spec.id,
+        name=spec.name,
+        team=spec.team,
+        event=spec.event,
+        year=spec.year,
+        launch_site=a.launch_site,
+        has_position=a.real.gnss is not None,
+        real_channels=sorted(a.real.channels),
+        apogee=ApogeeSummary(
+            real_m=a.real_apogee_m,
+            real_time_s=a.real_apogee_time_s,
+            ghost_m=a.ghost_apogee_m,
+            ghost_time_s=a.ghost_apogee_time_s,
+            delta_m=round(a.real_apogee_m - a.ghost_apogee_m, 3),
+            ghost_error_pct=err_before,
+        ),
+        team_prediction=a.team_prediction,
+        official_apogee=a.official,
+        max_mach_ghost=a.max_mach,
+        correction=corr,
+    )
+    detail = FlightDetail(
+        summary=summary,
+        provenance=Provenance(
+            repo=ROCKETPY_REPO_URL,
+            tag=ROCKETPY_TAG,
+            commit=ROCKETPY_COMMIT,
+            notebook=spec.notebook,
+            files=a.files,
+            rocketpy_version=a.rocketpy_version,
+            engine_version=__version__,
+            generated_at=generated_at,
+        ),
+        ghost=a.ghost,
+        corrected=c.corrected,
+        real=a.real,
+        delta=a.delta,
+        events=a.events,
+        timing=a.timing,
+        fingerprint=a.fingerprint,
+        diagnostics=a.diagnostics,
+    )
+    return row, summary, detail, debrief.build(spec, summary, a.diagnostics, a.peak_dvz)
+
+
+def _run_passes(
+    checkout: Path, specs: list[catalog.FlightSpec], jobs: int
+) -> tuple[dict[str, Pass1], dict[str, float], dict[str, Pass3]]:
     ctx = mp.get_context("spawn")
-    with ProcessPoolExecutor(max_workers=jobs, mp_context=ctx) as pool:
+    pool = ProcessPoolExecutor(max_workers=jobs, mp_context=ctx)
+    try:
         futures = {s.id: pool.submit(run_pass1, str(checkout), s.id) for s in specs}
         p1: dict[str, Pass1] = {}
         for fid, fut in futures.items():
@@ -355,106 +410,25 @@ def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None =
         k_hat = {fid: correction.held_out_k(k_own, fid) for fid in p1}
         futures3 = {fid: pool.submit(run_pass3, str(checkout), fid, k_hat[fid]) for fid in p1}
         p3 = {fid: fut.result() for fid, fut in futures3.items()}
+    except BaseException:
+        # A failed gate must not wait for the remaining queued notebook runs.
+        pool.shutdown(wait=False, cancel_futures=True)
+        raise
+    pool.shutdown()
+    return p1, k_hat, p3
+
+
+def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None = None) -> Path:
+    specs = [s for s in catalog.FLEET if not only or s.id in only]
+    if len(specs) < 2:
+        raise ValueError("need at least two flights for held-out evaluation")
+    p1, k_hat, p3 = _run_passes(checkout, specs, jobs)
 
     generated_at = datetime.now(UTC).replace(microsecond=0).isoformat()
     rocketpy_version = next(iter(p1.values())).rocketpy_version
-    rows: list[CorrectionRow] = []
-    summaries: list[FlightSummary] = []
-    details: list[FlightDetail] = []
-    debriefs = []
-    for spec in specs:
-        a, c = p1[spec.id], p3[spec.id]
-        err_before = correction.error_pct(a.ghost_apogee_m, a.real_apogee_m)
-        err_after = correction.error_pct(c.corrected_apogee_m, a.real_apogee_m)
-        row = CorrectionRow(
-            id=spec.id,
-            k_own=a.k_own,
-            k_hat=k_hat[spec.id],
-            real_apogee_m=a.real_apogee_m,
-            ghost_apogee_m=a.ghost_apogee_m,
-            corrected_apogee_m=c.corrected_apogee_m,
-            err_before_pct=err_before,
-            err_after_pct=err_after,
-        )
-        rows.append(row)
-        summary = FlightSummary(
-            id=spec.id,
-            name=spec.name,
-            team=spec.team,
-            event=spec.event,
-            year=spec.year,
-            launch_site=a.launch_site,
-            has_position=a.real.gnss is not None,
-            real_channels=sorted(a.real.channels),
-            apogee=ApogeeSummary(
-                real_m=a.real_apogee_m,
-                real_time_s=a.real_apogee_time_s,
-                ghost_m=a.ghost_apogee_m,
-                ghost_time_s=a.ghost_apogee_time_s,
-                delta_m=round(a.real_apogee_m - a.ghost_apogee_m, 3),
-                ghost_error_pct=err_before,
-            ),
-            team_prediction=a.team_prediction,
-            official_apogee=a.official,
-            max_mach_ghost=a.max_mach,
-            correction=CorrectionSummary(
-                k_own=a.k_own,
-                k_hat=k_hat[spec.id],
-                corrected_apogee_m=c.corrected_apogee_m,
-                err_before_pct=err_before,
-                err_after_pct=err_after,
-            ),
-        )
-        summaries.append(summary)
-        details.append(
-            FlightDetail(
-                summary=summary,
-                provenance=Provenance(
-                    repo=ROCKETPY_REPO_URL,
-                    tag=ROCKETPY_TAG,
-                    commit=ROCKETPY_COMMIT,
-                    notebook=spec.notebook,
-                    files=a.files,
-                    rocketpy_version=a.rocketpy_version,
-                    engine_version=__version__,
-                    generated_at=generated_at,
-                ),
-                ghost=a.ghost,
-                corrected=c.corrected,
-                real=a.real,
-                delta=a.delta,
-                events=a.events,
-                timing=a.timing,
-                fingerprint=a.fingerprint,
-                diagnostics=a.diagnostics,
-            )
-        )
-        debriefs.append(
-            debrief.build(
-                debrief.DebriefInputs(
-                    flight_id=spec.id,
-                    notebook=spec.notebook,
-                    log_path=spec.log.path,
-                    real_apogee_m=a.real_apogee_m,
-                    ghost_apogee_m=a.ghost_apogee_m,
-                    official_apogee_m=a.official.value_m if a.official else None,
-                    official_decimals=catalog.metre_decimals(a.official.quote) if a.official else 0,
-                    team_prediction_m=a.team_prediction.value_m if a.team_prediction else None,
-                    team_prediction_decimals=(
-                        catalog.metre_decimals(a.team_prediction.quote) if a.team_prediction else 0
-                    ),
-                    corrected_apogee_m=c.corrected_apogee_m,
-                    k_hat=k_hat[spec.id],
-                    max_mach_ghost=a.max_mach,
-                    peak_dvz=a.peak_dvz[0] if a.peak_dvz else None,
-                    peak_dvz_mach=a.peak_dvz[1] if a.peak_dvz else None,
-                    peak_dvz_alt=a.peak_dvz[2] if a.peak_dvz else None,
-                    liftoff_offset_s=a.diagnostics.liftoff_offset_s,
-                    median_interval_s=a.diagnostics.median_sample_interval_s,
-                    coarse=a.diagnostics.coarse_log,
-                )
-            )
-        )
+    parts = [_flight_artifacts(s, p1[s.id], p3[s.id], k_hat[s.id], generated_at) for s in specs]
+    rows = [row for row, _, _, _ in parts]
+    summaries = [summary for _, summary, _, _ in parts]
 
     gap = gapmap.build(
         [a.gap for a in p1.values() if a.gap is not None],
@@ -483,45 +457,32 @@ def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None =
             generated_at=generated_at,
         ),
     )
-
-    staging = out_dir.with_name(out_dir.name + ".staging")
-    if staging.exists():
-        shutil.rmtree(staging)
-    _write(staging / "fleet.json", fleet)
-    _write(staging / "gapmap.json", gap)
-    _write(staging / "correction.json", correction.report(rows))
-    _write(staging / "nextbest.json", best)
-    _write(
-        staging / "fingerprint.json",
-        FleetFingerprint(
-            method=fingerprint.METHOD,
-            not_attempted=fingerprint.NOT_ATTEMPTED,
-            rows=[
-                FingerprintRow(
-                    id=d.summary.id,
-                    name=d.summary.name,
-                    ghost_error_pct=d.summary.apogee.ghost_error_pct,
-                    fingerprint=d.fingerprint,
-                )
-                for d in details
-            ],
-        ),
+    fleet_fingerprint = FleetFingerprint(
+        method=fingerprint.METHOD,
+        not_attempted=fingerprint.NOT_ATTEMPTED,
+        rows=[
+            FingerprintRow(
+                id=detail.summary.id,
+                name=detail.summary.name,
+                ghost_error_pct=detail.summary.apogee.ghost_error_pct,
+                fingerprint=detail.fingerprint,
+            )
+            for _, _, detail, _ in parts
+        ],
     )
-    for d in details:
-        _write(staging / "flights" / f"{d.summary.id}.json", d)
-    for db in debriefs:
-        _write(staging / "debriefs" / f"{db.flight_id}.json", db)
-    manifest: dict[str, Any] = {
+    models: dict[str, Model] = {
+        "fleet.json": fleet,
+        "gapmap.json": gap,
+        "correction.json": correction.report(rows),
+        "nextbest.json": best,
+        "fingerprint.json": fleet_fingerprint,
+    }
+    for _, summary, detail, db in parts:
+        models[f"flights/{summary.id}.json"] = detail
+        models[f"debriefs/{db.flight_id}.json"] = db
+    manifest = {
         "generated_at": generated_at,
         "engine_version": __version__,
         "source_commit": ROCKETPY_COMMIT,
-        "files": {
-            p.relative_to(staging).as_posix(): sha256_file(p)
-            for p in sorted(staging.rglob("*.json"))
-        },
     }
-    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    staging.rename(out_dir)
-    return out_dir
+    return publish(out_dir, models, manifest)
