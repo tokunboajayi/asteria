@@ -54,6 +54,24 @@ def _epoch(text: str) -> datetime:
     return t.replace(tzinfo=UTC) if t.tzinfo is None else t.astimezone(UTC)
 
 
+def latest_issue_per_epoch(records: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One record per (object, epoch): the latest issued, by CREATION_DATE then GP_ID.
+
+    Space-Track re-publishes corrected fits under the same epoch. Keeping every copy
+    would chart two gaps at one instant and count that instant twice in the gap map.
+    """
+    latest: dict[tuple[int, datetime], dict[str, Any]] = {}
+
+    def issued(r: dict[str, Any]) -> tuple[datetime, int]:
+        return _epoch(str(r["CREATION_DATE"])), int(r["GP_ID"])
+
+    for r in records:
+        key = (int(r["NORAD_CAT_ID"]), _epoch(str(r["EPOCH"])))
+        if key not in latest or issued(r) > issued(latest[key]):
+            latest[key] = r
+    return list(latest.values())
+
+
 def from_record(record: dict[str, Any]) -> ElementSet:
     """An element set from a Space-Track GP / GP_history JSON record."""
     line1, line2 = str(record["TLE_LINE1"]), str(record["TLE_LINE2"])

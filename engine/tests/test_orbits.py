@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -219,6 +220,22 @@ def test_a_blank_value_never_hides_a_saved_key(
     plain.write_text("SPACETRACK_USER=aj@example.com\nSPACETRACK_PASSWORD=TEST_ONLY_pw\n")
     creds = spacetrack.credentials([local, plain])
     assert creds.user == "aj@example.com" and creds.password == "TEST_ONLY_pw"
+
+
+def test_a_reissued_epoch_keeps_only_the_latest_issue() -> None:
+    def rec(gp_id: int, created: str, epoch: str = "2024-05-13T11:25:59.123456") -> dict[str, Any]:
+        return {
+            "NORAD_CAT_ID": "48274",
+            "EPOCH": epoch,
+            "CREATION_DATE": created,
+            "GP_ID": str(gp_id),
+        }
+
+    older, newer = rec(10, "2024-05-13T15:00:00"), rec(9, "2024-05-13T19:00:00")
+    tie_low, tie_high = rec(20, "2024-05-14T01:00:00"), rec(21, "2024-05-14T01:00:00")
+    other = rec(5, "2024-05-12T00:00:00", epoch="2024-05-12T08:00:00")
+    assert ghost.latest_issue_per_epoch([newer, older, other]) == [newer, other]
+    assert ghost.latest_issue_per_epoch([tie_high, tie_low]) == [tie_high]
 
 
 # --- Catalog ----------------------------------------------------------------------

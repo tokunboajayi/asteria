@@ -107,7 +107,7 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
     ids = [o.norad_id for o in catalog.OBJECTS]
     history = spacetrack.fetch_history(paths.spacetrack_cache, ids, start, end, env_files)
     by_id: dict[int, list[ghost.ElementSet]] = {i: [] for i in ids}
-    for record in history.records:
+    for record in ghost.latest_issue_per_epoch(history.records):
         es = ghost.from_record(record)
         if es.norad_id not in by_id:
             raise IntegrityError(

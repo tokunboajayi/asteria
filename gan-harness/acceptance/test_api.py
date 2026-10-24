@@ -23,7 +23,9 @@ import pytest
 
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000").rstrip("/")
 # Unset means "not available" (Path("") would silently mean the current folder).
-SOURCE_DIR = Path(os.environ["ASTERIA_SOURCE_DIR"]) if os.environ.get("ASTERIA_SOURCE_DIR") else None
+SOURCE_DIR = (
+    Path(os.environ["ASTERIA_SOURCE_DIR"]) if os.environ.get("ASTERIA_SOURCE_DIR") else None
+)
 HAVE_SOURCE = SOURCE_DIR is not None and SOURCE_DIR.is_dir()
 PINNED_COMMIT = "9bd6ad3af8f97bafa3201d4e70eba2877e66e040"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -67,7 +69,9 @@ def test_health_and_fleet_size(client: httpx.Client, fleet: dict[str, Any]) -> N
 
 
 # 2 ------------------------------------------------------------------------
-def test_provenance_is_pinned_and_hashed(fleet: dict[str, Any], details: dict[str, dict[str, Any]]) -> None:
+def test_provenance_is_pinned_and_hashed(
+    fleet: dict[str, Any], details: dict[str, dict[str, Any]]
+) -> None:
     assert fleet["provenance"]["commit"] == PINNED_COMMIT
     for fid, d in details.items():
         files = d["provenance"]["files"]
@@ -125,7 +129,9 @@ def test_real_apogee_matches_raw_published_log(details: dict[str, dict[str, Any]
 
 
 # 4 ------------------------------------------------------------------------
-def test_delta_only_on_overlap_and_equals_real_minus_ghost(details: dict[str, dict[str, Any]]) -> None:
+def test_delta_only_on_overlap_and_equals_real_minus_ghost(
+    details: dict[str, dict[str, Any]],
+) -> None:
     for fid, d in details.items():
         t = d["delta"]["t"]
         dz = d["delta"]["altitude"]
@@ -139,7 +145,9 @@ def test_delta_only_on_overlap_and_equals_real_minus_ghost(details: dict[str, di
             if ti < lo or ti > hi:
                 assert di is None and ri is None, f"{fid}: delta extrapolated at t={ti}"
             elif di is not None:
-                assert di == pytest.approx(ri - gi, abs=1e-6), f"{fid}: delta != real-ghost at t={ti}"
+                assert di == pytest.approx(ri - gi, abs=1e-6), (
+                    f"{fid}: delta != real-ghost at t={ti}"
+                )
 
 
 # 5 ------------------------------------------------------------------------
@@ -174,7 +182,9 @@ def test_correction_is_leave_one_flight_out(client: httpx.Client) -> None:
     for fid, p in per.items():
         others = [q["k_own"] for qid, q in per.items() if qid != fid]
         expected = min(max(statistics.median(others), lo), hi)
-        assert p["k_hat"] == pytest.approx(expected, abs=1e-9), f"{fid}: k_hat is not the held-out median"
+        assert p["k_hat"] == pytest.approx(expected, abs=1e-9), (
+            f"{fid}: k_hat is not the held-out median"
+        )
     agg = rep["aggregate"]
     before = statistics.median(abs(p["err_before_pct"]) for p in per.values())
     after = statistics.median(abs(p["err_after_pct"]) for p in per.values())
@@ -201,7 +211,9 @@ def test_gap_map_marks_uncharted_cells(client: httpx.Client) -> None:
 
 
 # 8 ------------------------------------------------------------------------
-def test_debrief_numbers_all_come_from_cited_facts(client: httpx.Client, fleet: dict[str, Any]) -> None:
+def test_debrief_numbers_all_come_from_cited_facts(
+    client: httpx.Client, fleet: dict[str, Any]
+) -> None:
     for f in fleet["flights"]:
         r = client.get(f"/api/rockets/flights/{f['id']}/debrief")
         assert r.status_code == 200
@@ -223,7 +235,9 @@ def test_debrief_numbers_all_come_from_cited_facts(client: httpx.Client, fleet: 
 # 13 -----------------------------------------------------------------------
 # Storm Ghost. Skipped until orbit artifacts exist (they need a Space-Track login).
 SPACETRACK_FILE = (
-    Path(os.environ["ASTERIA_SPACETRACK_FILE"]) if os.environ.get("ASTERIA_SPACETRACK_FILE") else None
+    Path(os.environ["ASTERIA_SPACETRACK_FILE"])
+    if os.environ.get("ASTERIA_SPACETRACK_FILE")
+    else None
 )
 
 
@@ -322,12 +336,24 @@ def test_orbit_gaps_recomputed_independently_from_raw_element_sets(client: httpx
         series = obj["storm"]
         if series is None:
             continue
-        sets = sorted(
-            (r for r in records if int(r["NORAD_CAT_ID"]) == obj["norad_id"]),
-            key=lambda r: when(r["EPOCH"]),
+        # Space-Track re-issues fits under the same epoch; the latest issue supersedes.
+        latest: dict[datetime, dict[str, Any]] = {}
+        for r in records:
+            if int(r["NORAD_CAT_ID"]) != obj["norad_id"]:
+                continue
+            key, issued = when(r["EPOCH"]), (when(r["CREATION_DATE"]), int(r["GP_ID"]))
+            if key not in latest or issued > (
+                when(latest[key]["CREATION_DATE"]),
+                int(latest[key]["GP_ID"]),
+            ):
+                latest[key] = r
+        sets = sorted(latest.values(), key=lambda r: when(r["EPOCH"]))
+        assert len(set(series["epochs"])) == len(series["epochs"]), (
+            f"{obj['name']}: repeated epochs"
         )
         base = [s for s in sets if when(s["EPOCH"]) < when(fleet["storm"]["onset"])][-1]
         by_epoch = {when(s["EPOCH"]).replace(microsecond=0): s for s in sets}
+        assert len(by_epoch) == len(sets), "two element sets within one second"
         for epoch, it in zip(series["epochs"], series["in_track_km"]):
             t_key = when(epoch)
             tracked = by_epoch[t_key]
