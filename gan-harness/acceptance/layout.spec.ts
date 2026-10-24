@@ -160,7 +160,10 @@ test("no overlapping text with GNSS track and correction applied", async ({ page
   expect(overlaps(await textBoxes(page)), "no overlapping text").toEqual([]);
 });
 
-for (const size of [SIZES[1], SIZES[4]]) {
+// By name, not position: inserting a size into SIZES must not change what this test covers.
+const REPLAY_SIZES = SIZES.filter((s) => s.name === "laptop" || s.name === "phone");
+
+for (const size of REPLAY_SIZES) {
   test(`mission replay HUD fits at ${size.name} ${size.width}×${size.height}`, async ({ page }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
     await openConsole(page, "prometheus-2022");
