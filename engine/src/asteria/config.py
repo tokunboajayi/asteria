@@ -7,6 +7,7 @@ reproducible and every artifact can say exactly what it was made from.
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,15 +57,19 @@ class Paths:
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def env_file() -> Path:
-    """The one settings file: `<repo>/.env.local` (git-ignored, never committed).
+def env_files() -> list[Path]:
+    """Settings files, highest priority first; all git-ignored, never committed.
 
-    `engine/.env.local`, the earlier location, is still read if the new file
-    does not exist yet, so an existing setup keeps working.
+    `.env.local` at the repo root is the documented place. `.env` beside it, and the
+    earlier per-folder `engine/.env.local` and `engine/.env`, are read too, so a key
+    saved in any of them works. A blank value never hides a value set further down.
     """
-    root = REPO_ROOT / ".env.local"
-    legacy = REPO_ROOT / "engine" / ".env.local"
-    return legacy if not root.is_file() and legacy.is_file() else root
+    return [
+        REPO_ROOT / ".env.local",
+        REPO_ROOT / ".env",
+        REPO_ROOT / "engine" / ".env.local",
+        REPO_ROOT / "engine" / ".env",
+    ]
 
 
 def read_dotenv(path: Path) -> dict[str, str]:
@@ -81,9 +86,18 @@ def read_dotenv(path: Path) -> dict[str, str]:
     return values
 
 
+def file_setting(name: str, files: Sequence[Path]) -> str:
+    """The first non-empty value of `name` in `files` (in order), else ""."""
+    for path in files:
+        value = read_dotenv(path).get(name, "")
+        if value:
+            return value
+    return ""
+
+
 def setting(name: str, default: str = "") -> str:
-    """A setting: the process environment first, then the settings file, then `default`."""
-    return os.environ.get(name) or read_dotenv(env_file()).get(name) or default
+    """A setting: the process environment, then the settings files, then `default`."""
+    return os.environ.get(name) or file_setting(name, env_files()) or default
 
 
 def default_home() -> Path:

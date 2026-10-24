@@ -197,7 +197,7 @@ def test_credentials_from_env_file_and_password_never_printed(
     env.write_text(
         '# comment\nSPACETRACK_USER=aj@example.com\nSPACETRACK_PASSWORD="TEST_ONLY_secret"\n'
     )
-    creds = spacetrack.credentials(env)
+    creds = spacetrack.credentials([env])
     assert creds.user == "aj@example.com" and creds.password == "TEST_ONLY_secret"
     assert "TEST_ONLY_secret" not in repr(creds)
 
@@ -206,7 +206,19 @@ def test_missing_credentials_raise(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("SPACETRACK_USER", raising=False)
     monkeypatch.delenv("SPACETRACK_PASSWORD", raising=False)
     with pytest.raises(spacetrack.CredentialsMissing):
-        spacetrack.credentials(tmp_path / "absent.env")
+        spacetrack.credentials([tmp_path / "absent.env"])
+
+
+def test_a_blank_value_never_hides_a_saved_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SPACETRACK_USER", raising=False)
+    monkeypatch.delenv("SPACETRACK_PASSWORD", raising=False)
+    local, plain = tmp_path / ".env.local", tmp_path / ".env"
+    local.write_text("SPACETRACK_USER=\nSPACETRACK_PASSWORD=\n")  # template left blank
+    plain.write_text("SPACETRACK_USER=aj@example.com\nSPACETRACK_PASSWORD=TEST_ONLY_pw\n")
+    creds = spacetrack.credentials([local, plain])
+    assert creds.user == "aj@example.com" and creds.password == "TEST_ONLY_pw"
 
 
 # --- Catalog ----------------------------------------------------------------------

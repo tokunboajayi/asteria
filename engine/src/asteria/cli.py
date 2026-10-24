@@ -28,10 +28,10 @@ def _build(args: argparse.Namespace) -> None:
 
 
 def _build_orbits() -> None:
-    from asteria.config import env_file
+    from asteria.config import env_files
     from asteria.orbits.build import build
 
-    out = build(paths(), env_file())
+    out = build(paths(), env_files())
     print(f"orbit artifacts written: {out}")
 
 

@@ -1,8 +1,9 @@
 """Historical element sets from Space-Track.org (US Space Force, 18th/19th SDS).
 
 Needs a free account: SPACETRACK_USER and SPACETRACK_PASSWORD, from the
-environment or the settings file (.env.local at the repo root). The password is only ever sent to
-Space-Track's login endpoint; it is never logged or written anywhere.
+environment or the settings files (.env.local or .env at the repo root). The
+password is only ever sent to Space-Track's login endpoint; it is never logged or
+written anywhere.
 
 Space-Track's user agreement forbids redistributing its data, so raw
 responses stay in the local cache (.asteria/, git-ignored) and are never
@@ -26,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from asteria.config import read_dotenv
+from asteria.config import file_setting
 from asteria.provenance import sha256_file
 
 BASE = "https://www.space-track.org"
@@ -55,15 +56,20 @@ class HistoryFile:
     records: list[dict[str, Any]]
 
 
-def credentials(env_file: Path) -> Credentials:
-    """Environment first, then `env_file`; raise CredentialsMissing if neither has both."""
-    file_values = read_dotenv(env_file)
-    user = os.environ.get("SPACETRACK_USER") or file_values.get("SPACETRACK_USER", "")
-    password = os.environ.get("SPACETRACK_PASSWORD") or file_values.get("SPACETRACK_PASSWORD", "")
+def credentials(env_files: Sequence[Path]) -> Credentials:
+    """Environment first, then the first non-empty value in `env_files`.
+
+    Raises CredentialsMissing if either is still missing. Values are never printed.
+    """
+    user = os.environ.get("SPACETRACK_USER") or file_setting("SPACETRACK_USER", env_files)
+    password = os.environ.get("SPACETRACK_PASSWORD") or file_setting(
+        "SPACETRACK_PASSWORD", env_files
+    )
     if not user or not password:
+        names = ", ".join(str(p) for p in env_files)
         raise CredentialsMissing(
             "Space-Track login not found: set SPACETRACK_USER and SPACETRACK_PASSWORD "
-            f"in the environment or in {env_file}"
+            f"in the environment or in one of: {names}"
         )
     return Credentials(user, password)
 
@@ -92,7 +98,11 @@ def _download(url: str, creds: Credentials) -> bytes:
 
 
 def fetch_history(
-    cache: Path, norad_ids: Sequence[int], start: datetime, end: datetime, env_file: Path
+    cache: Path,
+    norad_ids: Sequence[int],
+    start: datetime,
+    end: datetime,
+    env_files: Sequence[Path],
 ) -> HistoryFile:
     """Element-set history for `norad_ids` in [start, end], cached by query."""
     url = history_url(norad_ids, start, end)
@@ -102,7 +112,7 @@ def fetch_history(
     if path.is_file() and meta.is_file():
         records = json.loads(path.read_bytes())
     else:
-        payload = _download(url, credentials(env_file))
+        payload = _download(url, credentials(env_files))
         records = json.loads(payload)
         if not isinstance(records, list):
             raise ValueError(f"Space-Track returned {type(records).__name__}, expected a list")

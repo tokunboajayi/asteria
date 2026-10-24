@@ -93,7 +93,7 @@ def _gap_samples(objects: Sequence[OrbitObjectSummary]) -> list[gapmap.FlightSam
     return out
 
 
-def build(paths: Paths, env_file: Path) -> Path:
+def build(paths: Paths, env_files: Sequence[Path]) -> Path:
     onset = catalog.STORM_ONSET
     follow = timedelta(days=catalog.FOLLOW_DAYS)
     start = onset - timedelta(days=catalog.HISTORY_LOOKBACK_DAYS)
@@ -105,7 +105,7 @@ def build(paths: Paths, env_file: Path) -> Path:
     quiet = spaceweather.quiet_window(hours, onset, catalog.FOLLOW_DAYS, catalog.QUIET_MAX_KP)
 
     ids = [o.norad_id for o in catalog.OBJECTS]
-    history = spacetrack.fetch_history(paths.spacetrack_cache, ids, start, end, env_file)
+    history = spacetrack.fetch_history(paths.spacetrack_cache, ids, start, end, env_files)
     by_id: dict[int, list[ghost.ElementSet]] = {i: [] for i in ids}
     for record in history.records:
         es = ghost.from_record(record)

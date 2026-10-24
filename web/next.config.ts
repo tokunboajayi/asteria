@@ -1,12 +1,37 @@
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 
-// The one settings file lives at the Asteria root (../.env.local), shared with the engine.
-// Loaded before Next reads web/.env*, so a value there wins; NEXT_PUBLIC_ values are
-// fixed into the build, so rebuild after changing them.
-loadEnvConfig(path.resolve(process.cwd(), ".."));
+// Settings are shared with the engine and read from the Asteria root, highest priority
+// first. A blank line (as left by the .env.example template) never hides a value saved
+// in a later file. Values already in the environment win. NEXT_PUBLIC_ values are fixed
+// into the build, so rebuild after changing them. Values are never printed.
+const ROOT = path.resolve(process.cwd(), "..");
+const SETTINGS_FILES = [".env.local", ".env", "web/.env.local", "web/.env"].map((f) => path.join(ROOT, f));
+
+function readDotenv(file: string): Record<string, string> {
+  if (!existsSync(file)) return {};
+  const out: Record<string, string> = {};
+  for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#") || !line.includes("=")) continue;
+    const i = line.indexOf("=");
+    const key = line.slice(0, i).replace(/^export\s+/, "").trim();
+    let value = line.slice(i + 1).trim();
+    if (value.length >= 2 && (value[0] === '"' || value[0] === "'") && value.at(-1) === value[0]) {
+      value = value.slice(1, -1);
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+for (const file of SETTINGS_FILES) {
+  for (const [key, value] of Object.entries(readDotenv(file))) {
+    if (value && !process.env[key]) process.env[key] = value;
+  }
+}
 
 const nextConfig: NextConfig = {
   cacheComponents: true,

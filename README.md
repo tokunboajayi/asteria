@@ -121,7 +121,7 @@ Copy-Item .env.example .env.local
 | `NEXT_PUBLIC_CESIUM_ION_TOKEN` | Real terrain + imagery on the 3D globe. Sent to the browser by design: give the token only the `assets:read` scope and allow only `http://localhost:3000`. Rebuild (`npm run build`) after adding it. |
 | `NEXT_PUBLIC_API_URL`, `ASTERIA_WEB_ORIGINS`, `ASTERIA_HOME` | Advanced; the defaults work. |
 
-`.env.local` is git-ignored; never commit it. A value in the system environment wins over the file.
+`.env.local` is git-ignored; never commit it. A value in the system environment wins over the file. A plain `.env` in this folder is read too (both are git-ignored); for each key the first non-empty value wins, in the order `.env.local`, `.env`, so a blank template line never hides a saved key.
 
 ## How it is built
 
@@ -186,7 +186,7 @@ cd web; npx playwright install chromium; npm run test:acceptance
 - **Trust boundary:** building the Rockets artifacts executes code from
   RocketPy's example notebooks. Asteria only runs it from a clean checkout of
   the pinned commit (verified by hash before every build).
-- Space-Track passwords are read from `.env.local` (repo root) or the environment,
+- Space-Track passwords are read from `.env.local` or `.env` (repo root) or the environment,
   sent only to Space-Track's login endpoint, and never logged. Raw Space-Track
   data stays on your machine; its user agreement forbids redistribution.
 - No Content-Security-Policy is set yet: Cesium needs workers, WebAssembly and
