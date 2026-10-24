@@ -216,7 +216,9 @@
 
 /* Map credit at the console's smallest text size. */
 .view :global(.cesium-credit-textContainer),
-.view :global(.cesium-credit-wrapper) {
+.view :global(.cesium-credit-wrapper),
+.view :global(.cesium-credit-expand-link),
+.view :global(.cesium-widget-credits *) {
   font-size: 11px !important;
 }
 

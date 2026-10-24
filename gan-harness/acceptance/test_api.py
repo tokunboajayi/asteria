@@ -341,7 +341,8 @@ def test_orbit_gaps_recomputed_independently_from_raw_element_sets(client: httpx
         for r in records:
             if int(r["NORAD_CAT_ID"]) != obj["norad_id"]:
                 continue
-            key, issued = when(r["EPOCH"]), (when(r["CREATION_DATE"]), int(r["GP_ID"]))
+            key = when(r["EPOCH"]).replace(microsecond=0)
+            issued = (when(r["CREATION_DATE"]), int(r["GP_ID"]))
             if key not in latest or issued > (
                 when(latest[key]["CREATION_DATE"]),
                 int(latest[key]["GP_ID"]),
