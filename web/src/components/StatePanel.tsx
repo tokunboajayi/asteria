@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
+
 import type { FlightDetail } from "@/lib/api";
 import { stateAt, type Mode } from "@/lib/flightView";
 import { fmtM, fmtNum, fmtPct, fmtSigned } from "@/lib/format";
+import controls from "./Controls.module.css";
+import { ExportDialog } from "./ExportDialog";
 
 import styles from "./StatePanel.module.css";
 
@@ -14,6 +18,7 @@ interface Props {
 }
 
 export function StatePanel({ detail, mode, onMode, cursor }: Props) {
+  const [showExport, setShowExport] = useState(false);
   const rows = stateAt(detail, cursor, mode);
   const s = detail.summary;
   const d = detail.diagnostics;
@@ -144,6 +149,57 @@ export function StatePanel({ detail, mode, onMode, cursor }: Props) {
           )}
         </ul>
       </section>
+
+      {detail.band && (
+        <section className={styles.block} data-testid="band-block">
+          <h2 className="label">Fleet band</h2>
+          <div className={styles.row}>
+            <span>Drag factors of the other {detail.band.n_others}</span>
+            <span>
+              k {fmtNum(detail.band.k_low, 3)} – {fmtNum(detail.band.k_high, 3)}
+            </span>
+          </div>
+          <div className={styles.row}>
+            <span>Apogee range</span>
+            <span>
+              {fmtM(detail.band.apogee_low_m)} – {fmtM(detail.band.apogee_high_m)}
+            </span>
+          </div>
+          <div className={styles.row}>
+            <span>Real apogee</span>
+            <span className={detail.band.real_apogee_inside ? styles.correctedText : styles.gapText}>
+              {fmtM(s.apogee.real_m)} · {detail.band.real_apogee_inside ? "inside" : "outside"}
+            </span>
+          </div>
+          <p className={styles.footnote}>
+            The ghost re-flown at the lowest and highest drag factor any other flight needed. The band models
+            drag error only: real altitude outside it early in the coast means the difference was already there at
+            burnout. Expected to hold a new flight {fmtNum(detail.band.expected_coverage * 100, 0)}% of the time.
+          </p>
+        </section>
+      )}
+
+      <section className={styles.block}>
+        <div className={controls.headRow}>
+          <h2 className="label">Export</h2>
+          <button type="button" className={controls.button} onClick={() => setShowExport(true)}>
+            CCSDS OEM · Open MCT
+          </button>
+        </div>
+      </section>
+
+      {showExport && (
+        <ExportDialog
+          name={`${s.name} ghost`}
+          oemPath={detail.weather_time_utc ? `/api/export/oem/rocket/${s.id}` : null}
+          oemNote={
+            detail.weather_time_utc
+              ? `RocketPy's ghost trajectory (not the recorded flight), Earth-fixed. Time zero is the notebook's weather hour, ${detail.weather_time_utc}, not a recorded launch time.`
+              : "The notebook sets no date, so the ghost has no UTC clock and no OEM can be written."
+          }
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 }

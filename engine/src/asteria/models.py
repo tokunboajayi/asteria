@@ -250,6 +250,33 @@ class Diagnostics(Model):
     )
 
 
+class FleetBand(Model):
+    """The ghost re-flown at the lowest and highest drag factors the OTHER flights needed.
+
+    Each flight's k_own is the drag scale that makes the ghost reach its real apogee.
+    Re-flying this flight at the other flights' extreme k values shows where it would
+    have gone had it erred like any of them. With n exchangeable flights, the range of
+    n others contains a new one with probability (n - 1) / (n + 1).
+    """
+
+    k_low: float
+    k_high: float
+    n_others: int = Field(description="Other flights with a bracketed k_own.")
+    expected_coverage: float = Field(description="(n - 1) / (n + 1) for n = n_others.")
+    t: list[float] = Field(description="Ghost time grid, s (same as ghost.t).")
+    altitude_low: list[float | None] = Field(description="m AGL; null after either run lands.")
+    altitude_high: list[float | None]
+    apogee_low_m: float
+    apogee_high_m: float
+    real_apogee_inside: bool
+    coast_s: tuple[float, float] = Field(
+        description="Ghost peak vertical speed to ghost apogee, s: where drag sets the band."
+    )
+    real_outside: list[tuple[float, float]] = Field(
+        description="Intervals within the coast (ghost clock, s) where real altitude left the band."
+    )
+
+
 class FlightDetail(Model):
     summary: FlightSummary
     provenance: Provenance
@@ -261,6 +288,13 @@ class FlightDetail(Model):
     timing: EventTiming
     fingerprint: Fingerprint
     diagnostics: Diagnostics
+    band: FleetBand | None = Field(
+        description="Null when fewer than two other flights have a bracketed k_own."
+    )
+    weather_time_utc: str | None = Field(
+        description="UTC hour of the notebook's weather data (Environment date); the ghost's "
+        "clock origin. Not a recorded launch time. Null if the notebook set no date."
+    )
 
 
 class Excluded(Model):
@@ -324,6 +358,15 @@ class CorrectionAggregate(Model):
     n_worse: int
 
 
+class BandCoverage(Model):
+    """How often each flight's real apogee fell inside its own leave-one-out FleetBand."""
+
+    flights: int
+    inside: int
+    expected_inside: float = Field(description="Sum over flights of (n - 1) / (n + 1).")
+    outside_ids: list[str]
+
+
 class CorrectionReport(Model):
     model: str
     clip: tuple[float, float]
@@ -331,6 +374,7 @@ class CorrectionReport(Model):
     evaluation: Literal["leave-one-flight-out"]
     per_flight: list[CorrectionRow]
     aggregate: CorrectionAggregate
+    band_coverage: BandCoverage | None
 
 
 class NextBestTarget(Model):
@@ -481,3 +525,62 @@ class OrbitFleet(Model):
     storm: StormInfo
     objects: list[OrbitObjectSummary]
     provenance: OrbitProvenance
+
+
+# --- Orbits: ephemerides, arcs and modelled density ------------------------------
+class GeoPoint(Model):
+    lat: float
+    lon: float
+    alt_km: float
+
+
+class StateVector(Model):
+    """TEME position (km) and velocity (km/s) from SGP4, as Space-Track's elements define."""
+
+    epoch: str
+    r_km: tuple[float, float, float]
+    v_km_s: tuple[float, float, float]
+
+
+class ObjectEphemeris(Model):
+    norad_id: int
+    name: str
+    step_s: float
+    source: str = Field(
+        description="How the states were made: each from the latest element set at or before it."
+    )
+    states: list[StateVector]
+    period_min: float = Field(description="From the latest element set's mean motion.")
+    arc_epoch: str = Field(description="Start of both one-revolution arcs (last tracked epoch).")
+    ghost_arc: list[GeoPoint] = Field(description="Ghost's element set, one revolution.")
+    tracked_arc: list[GeoPoint] = Field(description="Latest tracked element set, one revolution.")
+
+
+class Ephemerides(Model):
+    frame: Literal["TEME"]
+    objects: list[ObjectEphemeris]
+
+
+class ObjectDensity(Model):
+    norad_id: int
+    name: str
+    mean_altitude_km: float
+    times: list[str] = Field(description="Hourly, UTC.")
+    density_kg_m3: list[float] = Field(description="Orbit-averaged, real indices.")
+    quiet_density_kg_m3: list[float] = Field(
+        description="Same positions and F10.7, geomagnetic ap held at its quiet-window mean."
+    )
+    ratio: list[float] = Field(description="density / quiet_density")
+    peak_ratio: float
+    peak_time: str
+
+
+class DensityReport(Model):
+    model: str
+    method: str
+    quiet_ap: float = Field(
+        description="Mean daily Ap over the quiet window used as counterfactual."
+    )
+    sample_step_s: float
+    objects: list[ObjectDensity]
+    caveats: list[str]

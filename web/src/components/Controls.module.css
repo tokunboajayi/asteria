@@ -1,0 +1,59 @@
+/* Shared buttons and small toolbars (44 px touch targets, console typography). */
+.button,
+.buttonOn {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font: 500 12px var(--font-mono);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button {
+  border: 1px solid #2a313c;
+  background: transparent;
+  color: var(--text);
+}
+
+.button:hover {
+  border-color: var(--ghost);
+}
+
+.buttonOn {
+  border: 1px solid var(--ghost);
+  background: rgba(95, 180, 255, 0.14);
+  color: var(--ghost);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.group {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 6px;
+  background: rgba(5, 7, 10, 0.85);
+}
+
+.groupLabel {
+  align-self: center;
+  padding: 0 4px;
+  font: 500 11px var(--font-mono);
+  color: var(--text-dim);
+}
+
+.headRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}

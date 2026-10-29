@@ -24,6 +24,13 @@ export type TimedEvent = components["schemas"]["TimedEvent"];
 export type DescentRate = components["schemas"]["DescentRate"];
 export type Fingerprint = components["schemas"]["Fingerprint"];
 export type FleetFingerprint = components["schemas"]["FleetFingerprint"];
+export type FleetBand = components["schemas"]["FleetBand"];
+export type BandCoverage = components["schemas"]["BandCoverage"];
+export type GeoPoint = components["schemas"]["GeoPoint"];
+export type ObjectEphemeris = components["schemas"]["ObjectEphemeris"];
+export type DensityReport = components["schemas"]["DensityReport"];
+export type ObjectDensity = components["schemas"]["ObjectDensity"];
+export type OpenMctDictionary = components["schemas"]["OpenMctDictionary"];
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 

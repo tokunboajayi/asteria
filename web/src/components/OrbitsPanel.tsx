@@ -2,12 +2,24 @@
 
 import { useState } from "react";
 
-import type { GapMap, GapSeries, OrbitFleet, OrbitsStatus, SpaceWeatherSeries } from "@/lib/api";
+import type {
+  DensityReport,
+  GapMap,
+  GapSeries,
+  ObjectEphemeris,
+  OrbitFleet,
+  OrbitsStatus,
+  SpaceWeatherSeries,
+} from "@/lib/api";
 import { clamp, extent, linePath, padded, scale, symmetric } from "@/lib/chart";
 import { fmtNum, fmtSigned } from "@/lib/format";
 import { useApi, type Loadable } from "@/lib/useApi";
 
 import { GapMapPanel } from "./GapMapPanel";
+import controls from "./Controls.module.css";
+import { DensityPanel } from "./DensityPanel";
+import { ExportDialog } from "./ExportDialog";
+import { OrbitGlobeView } from "./OrbitGlobeView";
 import styles from "./OrbitsPanel.module.css";
 import panel from "./Panels.module.css";
 
@@ -49,19 +61,47 @@ function OrbitsData() {
   const weather = useApi<SpaceWeatherSeries>("/api/orbits/spaceweather");
   const gap = useApi<GapMap>("/api/orbits/gapmap");
   const [chosen, setChosen] = useState<number | null>(null);
+  // null = the latest tracked epoch, as before the scrubber is touched.
+  const [k, setK] = useState<number | null>(null);
+  const [showExport, setShowExport] = useState(false);
+
+  const defaultId =
+    fleet.state === "ready"
+      ? (fleet.data.objects.filter((o) => o.storm !== null)[0]?.norad_id ?? null)
+      : null;
+  const id = chosen ?? defaultId;
+  const eph = useApi<ObjectEphemeris>(id ? `/api/orbits/ephemeris/${id}` : null);
+  const density = useApi<DensityReport>("/api/orbits/density");
+
   if (fleet.state !== "ready") {
     return <p className={panel.note}>{fleet.state === "error" ? fleet.message : "Loading orbits…"}</p>;
   }
   const f = fleet.data;
   const shown = f.objects.filter((o) => o.storm !== null);
-  const id = chosen ?? shown[0]?.norad_id ?? null;
   const obj = f.objects.find((o) => o.norad_id === id) ?? null;
+
   return (
     <div className={styles.grid}>
+      {obj?.storm && eph.state === "ready" && eph.data.norad_id === obj.norad_id && (
+        <OrbitGlobeView
+          name={obj.name}
+          noradId={obj.norad_id}
+          series={obj.storm}
+          ephemeris={eph.data}
+          epochIndex={k ?? obj.storm.epochs.length - 1}
+        />
+      )}
+
       <section className={panel.panel} aria-labelledby="storm-title">
-        <h2 id="storm-title" className="label">
-          {f.storm.name}
-        </h2>
+        <div className={controls.headRow}>
+          <h2 id="storm-title" className="label">
+            {f.storm.name}
+          </h2>
+          <button type="button" className={controls.button} onClick={() => setShowExport(true)}>
+            CCSDS OEM · Open MCT
+          </button>
+        </div>
+
         <dl className={panel.kv}>
           <dt>Onset (ghost epochs end here)</dt>
           <dd>{f.storm.onset}</dd>
@@ -81,7 +121,10 @@ function OrbitsData() {
           id="sat-picker"
           className={styles.select}
           value={id ?? ""}
-          onChange={(e) => setChosen(Number(e.target.value))}
+          onChange={(e) => {
+            setChosen(Number(e.target.value));
+            setK(null);
+          }}
         >
           {shown.map((o) => (
             <option key={o.norad_id} value={o.norad_id}>
@@ -100,10 +143,13 @@ function OrbitsData() {
 
       {obj?.storm && (
         <>
-          <OrbitState key={obj.norad_id} series={obj.storm} />
+          <OrbitState key={obj.norad_id} series={obj.storm} k={k ?? obj.storm.epochs.length - 1} onKChange={setK} />
           <GapChart storm={obj.storm} quiet={obj.quiet} />
         </>
       )}
+
+      <DensityPanel density={density} objects={f.objects} selected={id} />
+
       {weather.state === "ready" && <WeatherChart weather={weather.data} onset={f.storm.onset} />}
       <GapMapPanel gap={gap} flightId={String(id ?? "")} noun="objects" />
       <p className={panel.note}>
@@ -111,26 +157,46 @@ function OrbitsData() {
         · downloaded {f.provenance.spacetrack_downloaded_at} · sgp4 {f.provenance.sgp4_version}. Raw Space-Track
         data stays on this machine (its user agreement forbids redistribution).
       </p>
+
+      {showExport && obj && (
+        <ExportDialog
+          name={obj.name}
+          oemPath={obj.storm ? `/api/export/oem/orbit/${obj.norad_id}` : null}
+          oemNote={
+            obj.storm
+              ? "TEME states every 5 minutes from the storm onset, each from SGP4 on the latest Space-Track element set at or before it. Positions and velocities."
+              : "No element set before the storm onset, so no ephemeris was built."
+          }
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 }
 
-function OrbitState({ series }: { series: GapSeries }) {
+function OrbitState({
+  series,
+  k,
+  onKChange,
+}: {
+  series: GapSeries;
+  k: number;
+  onKChange: (k: number) => void;
+}) {
   const last = series.epochs.length - 1;
-  const [i, setI] = useState(last);
-  const k = clamp(i, 0, last);
+  const index = clamp(k, 0, last);
   if (last < 0) {
     return <p className={panel.note}>No tracked element set after the ghost&apos;s epoch.</p>;
   }
   const rows: [string, string, number, number, number][] = [
-    ["ALT", "km", series.ghost_alt_km[k], series.tracked_alt_km[k], 3],
-    ["LAT", "°", series.ghost_lat[k], series.tracked_lat[k], 4],
-    ["LON", "°", series.ghost_lon[k], series.tracked_lon[k], 4],
+    ["ALT", "km", series.ghost_alt_km[index], series.tracked_alt_km[index], 3],
+    ["LAT", "°", series.ghost_lat[index], series.tracked_lat[index], 4],
+    ["LON", "°", series.ghost_lon[index], series.tracked_lon[index], 4],
   ];
   return (
     <section className={panel.panel} aria-labelledby="orbit-state-title">
       <h2 id="orbit-state-title" className="label">
-        At {series.epochs[k]} · {fmtNum(series.days[k], 2)} days after the ghost&apos;s epoch
+        At {series.epochs[index]} · {fmtNum(series.days[index], 2)} days after the ghost&apos;s epoch
       </h2>
       <label htmlFor="epoch-scrub" className="visually-hidden">
         Tracked element set
@@ -140,8 +206,8 @@ function OrbitState({ series }: { series: GapSeries }) {
         type="range"
         min={0}
         max={last}
-        value={k}
-        onChange={(e) => setI(Number(e.target.value))}
+        value={index}
+        onChange={(e) => onKChange(Number(e.target.value))}
         className={styles.range}
       />
       <table className={styles.table} aria-label="Orbit state">

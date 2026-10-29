@@ -126,3 +126,10 @@
 .eventReal {
   color: var(--real) !important;
 }
+
+/* Fleet band: where this flight would have gone had it erred like the others. */
+.band {
+  fill: var(--ghost);
+  fill-opacity: 0.12;
+  stroke: none;
+}

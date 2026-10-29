@@ -1,0 +1,15 @@
+.other,
+.mine {
+  fill: none;
+}
+
+.other {
+  stroke: var(--text-dim);
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+}
+
+.mine {
+  stroke: var(--gap);
+  stroke-width: 2;
+}

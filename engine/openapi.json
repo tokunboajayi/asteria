@@ -44,6 +44,40 @@
         "title": "ApogeeSummary",
         "type": "object"
       },
+      "BandCoverage": {
+        "additionalProperties": false,
+        "description": "How often each flight's real apogee fell inside its own leave-one-out FleetBand.",
+        "properties": {
+          "expected_inside": {
+            "description": "Sum over flights of (n - 1) / (n + 1).",
+            "title": "Expected Inside",
+            "type": "number"
+          },
+          "flights": {
+            "title": "Flights",
+            "type": "integer"
+          },
+          "inside": {
+            "title": "Inside",
+            "type": "integer"
+          },
+          "outside_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Outside Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "flights",
+          "inside",
+          "expected_inside",
+          "outside_ids"
+        ],
+        "title": "BandCoverage",
+        "type": "object"
+      },
       "CorrectionAggregate": {
         "additionalProperties": false,
         "properties": {
@@ -78,6 +112,16 @@
         "properties": {
           "aggregate": {
             "$ref": "#/components/schemas/CorrectionAggregate"
+          },
+          "band_coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BandCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "clip": {
             "maxItems": 2,
@@ -130,7 +174,8 @@
           "k_bracket",
           "evaluation",
           "per_flight",
-          "aggregate"
+          "aggregate",
+          "band_coverage"
         ],
         "title": "CorrectionReport",
         "type": "object"
@@ -346,6 +391,52 @@
           "vz"
         ],
         "title": "DeltaSeries",
+        "type": "object"
+      },
+      "DensityReport": {
+        "additionalProperties": false,
+        "properties": {
+          "caveats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Caveats",
+            "type": "array"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectDensity"
+            },
+            "title": "Objects",
+            "type": "array"
+          },
+          "quiet_ap": {
+            "description": "Mean daily Ap over the quiet window used as counterfactual.",
+            "title": "Quiet Ap",
+            "type": "number"
+          },
+          "sample_step_s": {
+            "title": "Sample Step S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "model",
+          "method",
+          "quiet_ap",
+          "sample_step_s",
+          "objects",
+          "caveats"
+        ],
+        "title": "DensityReport",
         "type": "object"
       },
       "DescentRate": {
@@ -811,6 +902,128 @@
         "title": "Fleet",
         "type": "object"
       },
+      "FleetBand": {
+        "additionalProperties": false,
+        "description": "The ghost re-flown at the lowest and highest drag factors the OTHER flights needed.\n\nEach flight's k_own is the drag scale that makes the ghost reach its real apogee.\nRe-flying this flight at the other flights' extreme k values shows where it would\nhave gone had it erred like any of them. With n exchangeable flights, the range of\nn others contains a new one with probability (n - 1) / (n + 1).",
+        "properties": {
+          "altitude_high": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Altitude High",
+            "type": "array"
+          },
+          "altitude_low": {
+            "description": "m AGL; null after either run lands.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Altitude Low",
+            "type": "array"
+          },
+          "apogee_high_m": {
+            "title": "Apogee High M",
+            "type": "number"
+          },
+          "apogee_low_m": {
+            "title": "Apogee Low M",
+            "type": "number"
+          },
+          "coast_s": {
+            "description": "Ghost peak vertical speed to ghost apogee, s: where drag sets the band.",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Coast S",
+            "type": "array"
+          },
+          "expected_coverage": {
+            "description": "(n - 1) / (n + 1) for n = n_others.",
+            "title": "Expected Coverage",
+            "type": "number"
+          },
+          "k_high": {
+            "title": "K High",
+            "type": "number"
+          },
+          "k_low": {
+            "title": "K Low",
+            "type": "number"
+          },
+          "n_others": {
+            "description": "Other flights with a bracketed k_own.",
+            "title": "N Others",
+            "type": "integer"
+          },
+          "real_apogee_inside": {
+            "title": "Real Apogee Inside",
+            "type": "boolean"
+          },
+          "real_outside": {
+            "description": "Intervals within the coast (ghost clock, s) where real altitude left the band.",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Real Outside",
+            "type": "array"
+          },
+          "t": {
+            "description": "Ghost time grid, s (same as ghost.t).",
+            "items": {
+              "type": "number"
+            },
+            "title": "T",
+            "type": "array"
+          }
+        },
+        "required": [
+          "k_low",
+          "k_high",
+          "n_others",
+          "expected_coverage",
+          "t",
+          "altitude_low",
+          "altitude_high",
+          "apogee_low_m",
+          "apogee_high_m",
+          "real_apogee_inside",
+          "coast_s",
+          "real_outside"
+        ],
+        "title": "FleetBand",
+        "type": "object"
+      },
       "FleetFingerprint": {
         "additionalProperties": false,
         "properties": {
@@ -881,6 +1094,17 @@
       "FlightDetail": {
         "additionalProperties": false,
         "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FleetBand"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when fewer than two other flights have a bracketed k_own."
+          },
           "corrected": {
             "anyOf": [
               {
@@ -921,6 +1145,18 @@
           },
           "timing": {
             "$ref": "#/components/schemas/EventTiming"
+          },
+          "weather_time_utc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC hour of the notebook's weather data (Environment date); the ghost's clock origin. Not a recorded launch time. Null if the notebook set no date.",
+            "title": "Weather Time Utc"
           }
         },
         "required": [
@@ -933,7 +1169,9 @@
           "events",
           "timing",
           "fingerprint",
-          "diagnostics"
+          "diagnostics",
+          "band",
+          "weather_time_utc"
         ],
         "title": "FlightDetail",
         "type": "object"
@@ -1340,6 +1578,30 @@
         "title": "GapSeries",
         "type": "object"
       },
+      "GeoPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "alt_km": {
+            "title": "Alt Km",
+            "type": "number"
+          },
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lat",
+          "lon",
+          "alt_km"
+        ],
+        "title": "GeoPoint",
+        "type": "object"
+      },
       "GhostSeries": {
         "additionalProperties": false,
         "properties": {
@@ -1643,6 +1905,144 @@
         "title": "NextBestTarget",
         "type": "object"
       },
+      "ObjectDensity": {
+        "additionalProperties": false,
+        "properties": {
+          "density_kg_m3": {
+            "description": "Orbit-averaged, real indices.",
+            "items": {
+              "type": "number"
+            },
+            "title": "Density Kg M3",
+            "type": "array"
+          },
+          "mean_altitude_km": {
+            "title": "Mean Altitude Km",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "norad_id": {
+            "title": "Norad Id",
+            "type": "integer"
+          },
+          "peak_ratio": {
+            "title": "Peak Ratio",
+            "type": "number"
+          },
+          "peak_time": {
+            "title": "Peak Time",
+            "type": "string"
+          },
+          "quiet_density_kg_m3": {
+            "description": "Same positions and F10.7, geomagnetic ap held at its quiet-window mean.",
+            "items": {
+              "type": "number"
+            },
+            "title": "Quiet Density Kg M3",
+            "type": "array"
+          },
+          "ratio": {
+            "description": "density / quiet_density",
+            "items": {
+              "type": "number"
+            },
+            "title": "Ratio",
+            "type": "array"
+          },
+          "times": {
+            "description": "Hourly, UTC.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Times",
+            "type": "array"
+          }
+        },
+        "required": [
+          "norad_id",
+          "name",
+          "mean_altitude_km",
+          "times",
+          "density_kg_m3",
+          "quiet_density_kg_m3",
+          "ratio",
+          "peak_ratio",
+          "peak_time"
+        ],
+        "title": "ObjectDensity",
+        "type": "object"
+      },
+      "ObjectEphemeris": {
+        "additionalProperties": false,
+        "properties": {
+          "arc_epoch": {
+            "description": "Start of both one-revolution arcs (last tracked epoch).",
+            "title": "Arc Epoch",
+            "type": "string"
+          },
+          "ghost_arc": {
+            "description": "Ghost's element set, one revolution.",
+            "items": {
+              "$ref": "#/components/schemas/GeoPoint"
+            },
+            "title": "Ghost Arc",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "norad_id": {
+            "title": "Norad Id",
+            "type": "integer"
+          },
+          "period_min": {
+            "description": "From the latest element set's mean motion.",
+            "title": "Period Min",
+            "type": "number"
+          },
+          "source": {
+            "description": "How the states were made: each from the latest element set at or before it.",
+            "title": "Source",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/StateVector"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "step_s": {
+            "title": "Step S",
+            "type": "number"
+          },
+          "tracked_arc": {
+            "description": "Latest tracked element set, one revolution.",
+            "items": {
+              "$ref": "#/components/schemas/GeoPoint"
+            },
+            "title": "Tracked Arc",
+            "type": "array"
+          }
+        },
+        "required": [
+          "norad_id",
+          "name",
+          "step_s",
+          "source",
+          "states",
+          "period_min",
+          "arc_epoch",
+          "ghost_arc",
+          "tracked_arc"
+        ],
+        "title": "ObjectEphemeris",
+        "type": "object"
+      },
       "OmniSource": {
         "additionalProperties": false,
         "properties": {
@@ -1666,6 +2066,138 @@
           "downloaded_at"
         ],
         "title": "OmniSource",
+        "type": "object"
+      },
+      "OpenMctDictionary": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/OpenMctMeasurement"
+            },
+            "title": "Measurements",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "measurements"
+        ],
+        "title": "OpenMctDictionary",
+        "type": "object"
+      },
+      "OpenMctMeasurement": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/OpenMctValue"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "values"
+        ],
+        "title": "OpenMctMeasurement",
+        "type": "object"
+      },
+      "OpenMctPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "timestamp",
+          "value"
+        ],
+        "title": "OpenMctPoint",
+        "type": "object"
+      },
+      "OpenMctValue": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "hints": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Hints",
+            "type": "object"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "format",
+          "hints"
+        ],
+        "title": "OpenMctValue",
         "type": "object"
       },
       "OrbitFleet": {
@@ -2202,6 +2734,57 @@
         "title": "SpaceWeatherSeries",
         "type": "object"
       },
+      "StateVector": {
+        "additionalProperties": false,
+        "description": "TEME position (km) and velocity (km/s) from SGP4, as Space-Track's elements define.",
+        "properties": {
+          "epoch": {
+            "title": "Epoch",
+            "type": "string"
+          },
+          "r_km": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "R Km",
+            "type": "array"
+          },
+          "v_km_s": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "V Km S",
+            "type": "array"
+          }
+        },
+        "required": [
+          "epoch",
+          "r_km",
+          "v_km_s"
+        ],
+        "title": "StateVector",
+        "type": "object"
+      },
       "StormInfo": {
         "additionalProperties": false,
         "properties": {
@@ -2476,6 +3059,202 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/export/oem/orbit/{norad_id}": {
+      "get": {
+        "operationId": "export_orbit_oem_api_export_oem_orbit__norad_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "norad_id",
+            "required": true,
+            "schema": {
+              "title": "Norad Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Orbit Oem"
+      }
+    },
+    "/api/export/oem/rocket/{flight_id}": {
+      "get": {
+        "operationId": "export_rocket_oem_api_export_oem_rocket__flight_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "flight_id",
+            "required": true,
+            "schema": {
+              "title": "Flight Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Rocket Oem"
+      }
+    },
+    "/api/openmct/dictionary.json": {
+      "get": {
+        "operationId": "openmct_dictionary_api_openmct_dictionary_json_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenMctDictionary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Openmct Dictionary"
+      }
+    },
+    "/api/openmct/telemetry/{key}": {
+      "get": {
+        "operationId": "openmct_telemetry_api_openmct_telemetry__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenMctPoint"
+                  },
+                  "title": "Response Openmct Telemetry Api Openmct Telemetry  Key  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Openmct Telemetry"
+      }
+    },
+    "/api/orbits/density": {
+      "get": {
+        "operationId": "orbit_density_api_orbits_density_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DensityReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Orbit Density"
+      }
+    },
+    "/api/orbits/ephemeris/{norad_id}": {
+      "get": {
+        "operationId": "orbit_ephemeris_api_orbits_ephemeris__norad_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "norad_id",
+            "required": true,
+            "schema": {
+              "title": "Norad Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectEphemeris"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Orbit Ephemeris"
+      }
+    },
     "/api/orbits/fleet": {
       "get": {
         "operationId": "orbits_fleet_api_orbits_fleet_get",

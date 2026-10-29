@@ -22,6 +22,8 @@ from asteria.artifacts import IntegrityError, publish
 from asteria.config import Paths
 from asteria.core import gapmap
 from asteria.models import (
+    DensityReport,
+    Ephemerides,
     GapSeries,
     Model,
     OmniSource,
@@ -31,13 +33,17 @@ from asteria.models import (
     SpaceWeatherSeries,
     StormInfo,
 )
-from asteria.orbits import catalog, ghost, spacetrack, spaceweather
+from asteria.orbits import catalog, density, ephemeris, ghost, spacetrack, spaceweather
 
 OMNI_SOURCE = "NASA GSFC SPDF OMNI2 hourly (omni2_YYYY.dat)"
 
 
 def _iso(t: datetime) -> str:
     return t.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _parse(text: str) -> datetime:
+    return datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
 def _series(
@@ -99,7 +105,9 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
     start = onset - timedelta(days=catalog.HISTORY_LOOKBACK_DAYS)
     end = onset + follow + timedelta(days=1)
 
-    years = sorted({start.year, end.year})
+    # F10.7's 81-day centred mean reaches 40 days beyond the window on either side.
+    f107a_reach = timedelta(days=density.F107A_DAYS // 2 + 1)
+    years = list(range((start - f107a_reach).year, (end + f107a_reach).year + 1))
     omni_files = [spaceweather.fetch_year(paths.omni_cache, y) for y in years]
     hours = spaceweather.load(omni_files)
     quiet = spaceweather.quiet_window(hours, onset, catalog.FOLLOW_DAYS, catalog.QUIET_MAX_KP)
@@ -116,6 +124,10 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
         by_id[es.norad_id].append(es)
 
     summaries = []
+    ephemerides = []
+    densities = []
+    indices = density.Indices(hours)
+    quiet_ap = indices.quiet_ap(*quiet) if quiet else None
     for obj in catalog.OBJECTS:
         sets = sorted(by_id[obj.norad_id], key=lambda s: s.epoch)
         if not sets:
@@ -125,6 +137,28 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
         reason = (
             None if storm else "No element set before the storm onset in the downloaded window."
         )
+        if storm is not None:
+            base = ghost.base_set(sets, onset)
+            assert base is not None  # storm exists only when a base set does
+            arc_start = _parse(storm.epochs[-1]) if storm.epochs else onset
+            ephemerides.append(
+                ephemeris.build_object(
+                    obj.norad_id, obj.name, sets, base, onset, onset + follow, arc_start, _iso
+                )
+            )
+            if quiet_ap is not None:
+                densities.append(
+                    density.object_density(
+                        obj.norad_id,
+                        obj.name,
+                        sets,
+                        indices,
+                        quiet_ap,
+                        max(onset - timedelta(days=1), base.epoch),
+                        onset + follow,
+                        _iso,
+                    )
+                )
         summaries.append(
             OrbitObjectSummary(
                 norad_id=obj.norad_id,
@@ -204,5 +238,15 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
         "fleet.json": fleet,
         "spaceweather.json": weather,
         "gapmap.json": gap,
+        "ephemeris.json": Ephemerides(frame="TEME", objects=ephemerides),
     }
+    if quiet_ap is not None:
+        models["density.json"] = DensityReport(
+            model=density.MODEL,
+            method=density.METHOD,
+            quiet_ap=round(quiet_ap, 2),
+            sample_step_s=density.SAMPLE_STEP_S,
+            objects=densities,
+            caveats=density.CAVEATS,
+        )
     return publish(paths.orbits_artifacts, models, manifest)

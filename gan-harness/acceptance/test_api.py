@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import os
 import re
 import statistics
@@ -374,3 +375,117 @@ def test_orbit_gap_map_marks_uncharted_cells(client: httpx.Client) -> None:
     for c in gm["cells"]:
         if c["n_flights"] < gm["min_flights"]:
             assert c["charted"] is False and c["mean"] is None, c
+
+
+# --- Rebuilt features: fleet band, OEM, Open MCT, ephemeris, density -------------
+def test_fleet_band_uses_other_flights_k_and_coverage_adds_up(
+    client: httpx.Client, details: dict[str, dict[str, Any]]
+) -> None:
+    rep = client.get("/api/rockets/correction").json()
+    k_own = {p["id"]: p["k_own"] for p in rep["per_flight"]}
+    inside = 0
+    with_band = 0
+    for fid, d in details.items():
+        b = d["band"]
+        if b is None:
+            continue
+        with_band += 1
+        others = {k for f, k in k_own.items() if f != fid}
+        assert b["k_low"] in others and b["k_high"] in others, f"{fid}: band k not from others"
+        assert min(others) <= b["k_low"] <= b["k_high"] <= max(others)
+        n = b["n_others"]
+        assert b["expected_coverage"] == pytest.approx((n - 1) / (n + 1), abs=1e-4)
+        real = d["summary"]["apogee"]["real_m"]
+        is_in = b["apogee_low_m"] <= real <= b["apogee_high_m"]
+        assert b["real_apogee_inside"] is is_in, fid
+        inside += is_in
+        for lo, hi in zip(b["altitude_low"], b["altitude_high"], strict=True):
+            assert (lo is None) == (hi is None) and (lo is None or lo <= hi)
+        c0, c1 = b["coast_s"]
+        for a, z in b["real_outside"]:
+            assert c0 <= a <= z <= c1, f"{fid}: outside interval beyond the coast"
+    cov = rep["band_coverage"]
+    assert cov["flights"] == with_band and cov["inside"] == inside
+
+
+def _oem_rows(text: str) -> list[list[str]]:
+    body = text.split("META_STOP", 1)[1]
+    return [ln.split() for ln in body.splitlines() if ln and not ln.startswith("COMMENT")]
+
+
+def test_rocket_oem_starts_at_the_weather_hour_and_never_repeats(
+    client: httpx.Client, details: dict[str, dict[str, Any]]
+) -> None:
+    from datetime import UTC, datetime
+
+    for fid, d in details.items():
+        r = client.get(f"/api/export/oem/rocket/{fid}")
+        if d["weather_time_utc"] is None:
+            assert r.status_code == 404
+            continue
+        assert r.status_code == 200, r.text
+        assert "REF_FRAME = ITRF2000" in r.text and "not a recorded launch time" in r.text
+        rows = _oem_rows(r.text)
+        assert len(rows) == len(d["ghost"]["t"])
+        t0 = datetime.fromisoformat(d["weather_time_utc"].replace("Z", "+00:00"))
+        first = datetime.fromisoformat(rows[0][0]).replace(tzinfo=UTC)
+        assert first == t0
+        stamps = [row[0] for row in rows]
+        assert stamps == sorted(stamps) and len(set(stamps)) == len(stamps)
+        # Within a few km of the launch site's Earth-fixed position at liftoff.
+        site = d["summary"]["launch_site"]
+        x, y, z = (float(v) for v in rows[0][1:4])
+        lat = math.degrees(math.atan2(z, math.hypot(x, y)))
+        lon = math.degrees(math.atan2(y, x))
+        assert abs(lon - site["longitude_deg"]) < 0.05
+        assert abs(lat - site["latitude_deg"]) < 0.3  # geocentric vs geodetic latitude
+
+
+def test_openmct_serves_every_dictionary_key_and_nothing_else(client: httpx.Client) -> None:
+    d = client.get("/api/openmct/dictionary.json").json()
+    keys = [m["key"] for m in d["measurements"]]
+    assert keys and len(keys) == len(set(keys))
+    for k in keys:
+        r = client.get(f"/api/openmct/telemetry/{k}")
+        assert r.status_code == 200, k
+        pts = r.json()
+        assert pts and all(p["id"] == k for p in pts), k
+        ts = [p["timestamp"] for p in pts]
+        assert ts == sorted(ts), k
+    assert client.get("/api/openmct/telemetry/not.a.key").status_code == 404
+
+
+def test_orbit_ephemeris_and_oem_are_sgp4_states(client: httpx.Client) -> None:
+    fleet = _orbits_or_skip(client)
+    from datetime import datetime
+
+    for obj in fleet["objects"]:
+        if obj["storm"] is None:
+            continue
+        e = client.get(f"/api/orbits/ephemeris/{obj['norad_id']}").json()
+        times = [datetime.fromisoformat(s["epoch"].replace("Z", "+00:00")) for s in e["states"]]
+        steps = {(b - a).total_seconds() for a, b in zip(times, times[1:])}
+        assert steps == {e["step_s"]}
+        for s in e["states"]:
+            r = math.dist((0, 0, 0), s["r_km"])
+            v = math.dist((0, 0, 0), s["v_km_s"])
+            assert 6500 < r < 7300 and 7.0 < v < 8.0, obj["name"]
+        assert e["ghost_arc"] and e["tracked_arc"]
+        oem = client.get(f"/api/export/oem/orbit/{obj['norad_id']}").text
+        rows = _oem_rows(oem)
+        assert "REF_FRAME = TEME" in oem and len(rows) == len(e["states"])
+        assert all(len(row) == 7 for row in rows)
+
+
+def test_density_ratio_is_density_over_counterfactual(client: httpx.Client) -> None:
+    _orbits_or_skip(client)
+    r = client.get("/api/orbits/density")
+    if r.status_code == 404:
+        pytest.skip("no quiet window")
+    rep = r.json()
+    for o in rep["objects"]:
+        for rho, q, ratio in zip(o["density_kg_m3"], o["quiet_density_kg_m3"], o["ratio"], strict=True):
+            assert rho > 0 and q > 0
+            assert ratio == pytest.approx(rho / q, rel=2e-3)
+        assert o["peak_ratio"] == pytest.approx(max(o["ratio"]), abs=1e-3)
+        assert o["peak_time"] in o["times"]

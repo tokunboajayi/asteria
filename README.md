@@ -71,6 +71,31 @@ shows the clock, phase, ghost vs real altitude and speed, and each event as it
 happens, with its measured real-vs-ghost timing. Near Mach 1 the readout warns
 that the real altimeter can misread.
 
+### Fleet band (leave-one-out)
+
+Each flight's ghost is re-flown at the lowest and highest drag factor `k_own`
+that any *other* flight needed to match its real apogee. The band answers: had
+this flight erred like any of the others, where would it have gone? With n
+other flights the range should hold a new flight (n−1)/(n+1) of the time; the
+build counts how often it actually did (currently 9 of 11 against 9.0
+expected). The band models drag error only, so real altitude outside it early
+in the coast means the difference was already there at burnout.
+
+### Orbits: real arcs, modelled density, exports
+
+- **Ephemeris and arcs:** SGP4 states every 5 minutes, each from the latest
+  Space-Track element set at or before it (TEME), and one revolution of the
+  ghost's and the latest tracked orbit for the globe.
+- **Modelled density:** NRLMSIS 2.1 (pymsis) along each satellite's real
+  positions with NASA OMNI F10.7 and 3-hour ap, divided by the same model with
+  ap held at the quiet window's level. Labelled a model and shown beside the
+  measured in-track gap, never in place of it.
+- **CCSDS OEM:** orbit ephemerides (TEME, with velocities) and each rocket
+  ghost's trajectory (Earth-fixed; time zero is the notebook's weather hour,
+  stated in the file, not a recorded launch time).
+- **NASA Open MCT:** a dictionary in Open MCT's tutorial format and historical
+  telemetry for every key it lists; unknown keys return 404.
+
 ## Run it (Windows, PowerShell)
 
 You need **Git**, **Node.js 20+** and **uv** (which installs Python for you):

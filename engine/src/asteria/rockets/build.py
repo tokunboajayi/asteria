@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -33,6 +34,7 @@ from asteria.config import ROCKETPY_COMMIT, ROCKETPY_REPO_URL, ROCKETPY_TAG
 from asteria.core import gapmap, nextbest
 from asteria.models import (
     ApogeeSummary,
+    BandCoverage,
     CorrectionRow,
     CorrectionSummary,
     Debrief,
@@ -44,6 +46,7 @@ from asteria.models import (
     Fingerprint,
     FingerprintRow,
     Fleet,
+    FleetBand,
     FleetFingerprint,
     FleetProvenance,
     FlightDetail,
@@ -58,6 +61,7 @@ from asteria.models import (
 )
 from asteria.provenance import source_file
 from asteria.rockets import (
+    band,
     catalog,
     correction,
     debrief,
@@ -107,6 +111,7 @@ class Pass1:
     k_own: float
     k_bracketed: bool
     launch_site: LaunchSite
+    weather_time_utc: str | None
     files: list[SourceFile]
     team_prediction: Quote | None
     official: Quote | None
@@ -286,6 +291,7 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
             longitude_deg=float(flight.env.longitude),
             elevation_m=float(flight.env.elevation),
         ),
+        weather_time_utc=_weather_time(flight),
         files=_source_files(checkout, spec),
         team_prediction=team,
         official=official,
@@ -298,23 +304,70 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
 # Pass 3
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
+class BandRun:
+    altitude: list[float | None]
+    apogee_m: float
+
+
+@dataclass(frozen=True)
 class Pass3:
     spec_id: str
     corrected: GhostSeries
     corrected_apogee_m: float
+    band_runs: tuple[BandRun, BandRun] | None
 
 
-def run_pass3(checkout_str: str, spec_id: str, k_hat: float) -> Pass3:
+def _band_run(kwargs: dict[str, Any], k: float, t_grid: list[float]) -> BandRun:
+    flight = correction.resimulate(kwargs, k, to_apogee=False)
+    t_end = float(flight.t_final)
+    t = np.asarray([x for x in t_grid if x <= t_end], dtype=np.float64)
+    alt = np.asarray(flight.altitude.get_value(t), dtype=np.float64) if t.size else np.array([])
+    values: list[float | None] = [round(float(v), 2) for v in alt]
+    values += [None] * (len(t_grid) - len(values))
+    return BandRun(altitude=values, apogee_m=round(ghost.apogee_agl(flight), 3))
+
+
+def run_pass3(
+    checkout_str: str,
+    spec_id: str,
+    k_hat: float,
+    k_range: tuple[float, float] | None,
+    t_grid: list[float],
+) -> Pass3:
     checkout = Path(checkout_str)
     spec = catalog.by_id(spec_id)
     run = notebook.run_notebook(checkout, spec.notebook, spec.skip_cells)
     kwargs = notebook.flight_init_kwargs(run.get(spec.flight_var))
     flight = correction.resimulate(kwargs, k_hat, to_apogee=False)
+    runs = (
+        None
+        if k_range is None
+        else (_band_run(kwargs, k_range[0], t_grid), _band_run(kwargs, k_range[1], t_grid))
+    )
     return Pass3(
         spec_id=spec_id,
         corrected=ghost.sample(flight).to_model(),
         corrected_apogee_m=round(ghost.apogee_agl(flight), 3),
+        band_runs=runs,
     )
+
+
+def _coast(g: GhostSeries, apogee_time_s: float) -> tuple[float, float]:
+    """Ghost peak vertical speed (end of powered climb) to ghost apogee."""
+    k = int(np.argmax(g.vz))
+    return (g.t[k], apogee_time_s)
+
+
+def _pair(k: band.KRange | None) -> tuple[float, float] | None:
+    return None if k is None else (k.k_low, k.k_high)
+
+
+def _weather_time(flight: Any) -> str | None:
+    when = getattr(flight.env, "datetime_date", None)
+    if when is None:
+        return None
+    text: str = when.astimezone(UTC).replace(microsecond=0).isoformat()
+    return text.replace("+00:00", "Z")
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +378,12 @@ def _log(message: str) -> None:
 
 
 def _flight_artifacts(
-    spec: catalog.FlightSpec, a: Pass1, c: Pass3, k_hat: float, generated_at: str
+    spec: catalog.FlightSpec,
+    a: Pass1,
+    c: Pass3,
+    k_hat: float,
+    k_range: band.KRange | None,
+    generated_at: str,
 ) -> tuple[CorrectionRow, FlightSummary, FlightDetail, Debrief]:
     """Everything one flight contributes: its correction row, summary, detail and debrief."""
     err_before = correction.error_pct(a.ghost_apogee_m, a.real_apogee_m)
@@ -385,13 +443,29 @@ def _flight_artifacts(
         timing=a.timing,
         fingerprint=a.fingerprint,
         diagnostics=a.diagnostics,
+        band=(
+            None
+            if k_range is None or c.band_runs is None
+            else band.make(
+                k_range,
+                a.ghost.t,
+                c.band_runs[0].altitude,
+                c.band_runs[1].altitude,
+                c.band_runs[0].apogee_m,
+                c.band_runs[1].apogee_m,
+                a.delta.real_altitude,
+                a.real_apogee_m,
+                _coast(a.ghost, a.ghost_apogee_time_s),
+            )
+        ),
+        weather_time_utc=a.weather_time_utc,
     )
     return row, summary, detail, debrief.build(spec, summary, a.diagnostics, a.peak_dvz)
 
 
 def _run_passes(
     checkout: Path, specs: list[catalog.FlightSpec], jobs: int
-) -> tuple[dict[str, Pass1], dict[str, float], dict[str, Pass3]]:
+) -> tuple[dict[str, Pass1], dict[str, float], dict[str, band.KRange | None], dict[str, Pass3]]:
     ctx = mp.get_context("spawn")
     pool = ProcessPoolExecutor(max_workers=jobs, mp_context=ctx)
     try:
@@ -407,26 +481,41 @@ def _run_passes(
             )
 
         k_own = {fid: r.k_own for fid, r in p1.items()}
+        bracketed = {fid: r.k_bracketed for fid, r in p1.items()}
         k_hat = {fid: correction.held_out_k(k_own, fid) for fid in p1}
-        futures3 = {fid: pool.submit(run_pass3, str(checkout), fid, k_hat[fid]) for fid in p1}
+        k_ranges = {fid: band.held_out_range(k_own, bracketed, fid) for fid in p1}
+        futures3 = {
+            fid: pool.submit(
+                run_pass3,
+                str(checkout),
+                fid,
+                k_hat[fid],
+                _pair(k_ranges[fid]),
+                p1[fid].ghost.t,
+            )
+            for fid in p1
+        }
         p3 = {fid: fut.result() for fid, fut in futures3.items()}
     except BaseException:
         # A failed gate must not wait for the remaining queued notebook runs.
         pool.shutdown(wait=False, cancel_futures=True)
         raise
     pool.shutdown()
-    return p1, k_hat, p3
+    return p1, k_hat, k_ranges, p3
 
 
 def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None = None) -> Path:
     specs = [s for s in catalog.FLEET if not only or s.id in only]
     if len(specs) < 2:
         raise ValueError("need at least two flights for held-out evaluation")
-    p1, k_hat, p3 = _run_passes(checkout, specs, jobs)
+    p1, k_hat, k_ranges, p3 = _run_passes(checkout, specs, jobs)
 
     generated_at = datetime.now(UTC).replace(microsecond=0).isoformat()
     rocketpy_version = next(iter(p1.values())).rocketpy_version
-    parts = [_flight_artifacts(s, p1[s.id], p3[s.id], k_hat[s.id], generated_at) for s in specs]
+    parts = [
+        _flight_artifacts(s, p1[s.id], p3[s.id], k_hat[s.id], k_ranges[s.id], generated_at)
+        for s in specs
+    ]
     rows = [row for row, _, _, _ in parts]
     summaries = [summary for _, summary, _, _ in parts]
 
@@ -473,7 +562,9 @@ def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None =
     models: dict[str, Model] = {
         "fleet.json": fleet,
         "gapmap.json": gap,
-        "correction.json": correction.report(rows),
+        "correction.json": correction.report(
+            rows, _coverage([d.band for _, _, d, _ in parts], [s.id for s in specs])
+        ),
         "nextbest.json": best,
         "fingerprint.json": fleet_fingerprint,
     }
@@ -486,3 +577,15 @@ def build(checkout: Path, out_dir: Path, jobs: int = 2, only: list[str] | None =
         "source_commit": ROCKETPY_COMMIT,
     }
     return publish(out_dir, models, manifest)
+
+
+def _coverage(bands: list[FleetBand | None], ids: list[str]) -> BandCoverage | None:
+    pairs = [(fid, b) for fid, b in zip(ids, bands, strict=True) if b is not None]
+    if not pairs:
+        return None
+    return BandCoverage(
+        flights=len(pairs),
+        inside=sum(b.real_apogee_inside for _, b in pairs),
+        expected_inside=round(sum(b.expected_coverage for _, b in pairs), 3),
+        outside_ids=[fid for fid, b in pairs if not b.real_apogee_inside],
+    )

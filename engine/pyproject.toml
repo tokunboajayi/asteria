@@ -19,6 +19,7 @@ dependencies = [
     "pydantic>=2.6",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
+    "pymsis>=0.10",
 ]
 
 
@@ -56,3 +57,4 @@ mypy_path = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--basetemp=.pytest_tmp"

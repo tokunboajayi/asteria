@@ -19,7 +19,7 @@ from typing import Any
 
 from scipy.optimize import brentq
 
-from asteria.models import CorrectionAggregate, CorrectionReport, CorrectionRow
+from asteria.models import BandCoverage, CorrectionAggregate, CorrectionReport, CorrectionRow
 from asteria.rockets.ghost import apogee_agl
 from asteria.rockets.notebook import seed_rng
 
@@ -105,7 +105,9 @@ def error_pct(predicted: float, real: float) -> float:
     return (predicted - real) / real * 100.0
 
 
-def report(rows: list[CorrectionRow]) -> CorrectionReport:
+def report(
+    rows: list[CorrectionRow], band_coverage: BandCoverage | None = None
+) -> CorrectionReport:
     before = statistics.median(abs(r.err_before_pct) for r in rows)
     after = statistics.median(abs(r.err_after_pct) for r in rows)
     return CorrectionReport(
@@ -120,4 +122,5 @@ def report(rows: list[CorrectionRow]) -> CorrectionReport:
             n_improved=sum(abs(r.err_after_pct) < abs(r.err_before_pct) for r in rows),
             n_worse=sum(abs(r.err_after_pct) > abs(r.err_before_pct) for r in rows),
         ),
+        band_coverage=band_coverage,
     )

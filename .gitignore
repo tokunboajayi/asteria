@@ -20,3 +20,7 @@ web/next-env.d.ts
 engine/.env.local
 web/.env.local
 web/tsconfig.tsbuildinfo
+.pytest_tmp/
+engine/.pytest_tmp/
+.overhaul/
+OVERHAUL_LEDGER.md

@@ -92,6 +92,7 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pydantic" },
+    { name = "pymsis" },
     { name = "rocketpy" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -114,6 +115,7 @@ requires-dist = [
     { name = "netcdf4", specifier = ">=1.6.4" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pydantic", specifier = ">=2.6" },
+    { name = "pymsis", specifier = ">=0.10" },
     { name = "rocketpy", specifier = "==1.13.0" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "sgp4", specifier = ">=2.23" },
@@ -1027,6 +1029,33 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/49/2e/ced460408999b33da6b31b0021b0f37d329e202d4169aeb164493778f25b/pygments-2.21.0.tar.gz", hash = "sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c", size = 5005329, upload-time = "2026-08-17T08:02:48.824Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl", hash = "sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9", size = 1250147, upload-time = "2026-08-17T08:02:44.912Z" },
+]
+
+[[package]]
+name = "pymsis"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/cc/87586c8e0d8ee3c90d92b4e86bbf7a5f5156f3f2ae3e44a13571fc497bf2/pymsis-0.13.0.tar.gz", hash = "sha256:8c3bd36fa188361a5caa92ae054e9f0a93b8a5de6935e201c312d9d0fdbbbe70", size = 141334, upload-time = "2026-09-08T23:21:56.069Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/c6/b1e83692facf1f3ce827e29d7c1f65838bb51403abd38e0097b012f37538/pymsis-0.13.0-cp311-cp311-macosx_15_0_arm64.whl", hash = "sha256:ec4c3a20aab38edcf24d293c5a471a65642347c02b24a1839e6c73f875aae48c", size = 986439, upload-time = "2026-09-08T23:21:03.002Z" },
+    { url = "https://files.pythonhosted.org/packages/13/02/1028d1cb612be7c5f9d1c0d6ab78a6d18b1ee5611907add88411fd330c63/pymsis-0.13.0-cp311-cp311-macosx_15_0_x86_64.whl", hash = "sha256:43dbda887f59393eaff36da86713ebd8f1f4191cf3acae96f2caf3d876f7b3ff", size = 1610824, upload-time = "2026-09-08T23:21:04.544Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/9e/491bc3a453773b82e901d14c0fcde188338b63379b597f70c4f34433ee75/pymsis-0.13.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9f20c5c528e81ab240873a83415c5ce5210b38e693f1f81bc394b2a0430e88c0", size = 735889, upload-time = "2026-09-08T23:21:06.113Z" },
+    { url = "https://files.pythonhosted.org/packages/03/31/65e00986a9cced2241ab8e8fe56d6541a3d65d7d4584a6833e3519efb06c/pymsis-0.13.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8e657760a91661c0e2862460172a7cb6a47e4252dcb1bf61940b09e37dbb07e5", size = 1311104, upload-time = "2026-09-08T23:21:07.769Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/ac/1bf75c30003abbfd2714ab206dd875bc594729ffbb5202cc59dba36f44a3/pymsis-0.13.0-cp311-cp311-win_amd64.whl", hash = "sha256:35d41d2807cf21b64c483d76a3bb08a21bdcded21766e13ee4b47a7474b6df79", size = 1231721, upload-time = "2026-09-08T23:21:09.195Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/8b/4c619a046eb85692acefa96240e9b29a665d069ccdc77dfaa590e07680e2/pymsis-0.13.0-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:65b147ada4e39fe6e3c330ec12dc3341009cf26ef31c8486c48c53f4854fffb7", size = 988540, upload-time = "2026-09-08T23:21:10.821Z" },
+    { url = "https://files.pythonhosted.org/packages/90/2e/e655a07c4d6c156e9877de7ec9559f8cda9b40111b20af5776b3e7410596/pymsis-0.13.0-cp312-cp312-macosx_15_0_x86_64.whl", hash = "sha256:deeef31d1c7dcd942a56e05d2da393e7cb76be94152df7c038fcb8f02760f4a8", size = 1612959, upload-time = "2026-09-08T23:21:12.154Z" },
+    { url = "https://files.pythonhosted.org/packages/10/67/7520cbe532932ffa7e1bc57ecfcf45f530651f1afc1fb6b8465691a14d11/pymsis-0.13.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:3e7c7c169ec441e6920564e526dd4cf984f383b1e0672c3c4ad41cf4d2cf30b1", size = 737673, upload-time = "2026-09-08T23:21:13.558Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/37/d42cd57f947dcb3c7bbe7b0a2148b31ed37d832f000dd5b6a81ef34231f8/pymsis-0.13.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f58eb21787ef9e9585d1987c5f494d4e9f83a96e2daa0b47f705d76628135925", size = 1313559, upload-time = "2026-09-08T23:21:15.236Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/34/b93e802d0b365d69f7f5bf898ebb99cac6de9ebf488b57651467632f084c/pymsis-0.13.0-cp312-cp312-win_amd64.whl", hash = "sha256:1cb7b877b3d8ef7723f44ef14b4c07ed483eda5c27bbeebb0a9cd2535251c8d3", size = 1233933, upload-time = "2026-09-08T23:21:16.628Z" },
+    { url = "https://files.pythonhosted.org/packages/23/ba/88b532c81afd124d85904aa29f051a5d2d5f825e8a8d03e7546adad0775e/pymsis-0.13.0-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:929323cc633b9869c5ab2cb74b987ad2e7111f7b69f87a8d6664ade3ce65aaa4", size = 988611, upload-time = "2026-09-08T23:21:18.685Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/62/3ba3ee1856d1606b441c72172a5cceef8e65c9eb52ffc7e21c7dc270b8cf/pymsis-0.13.0-cp313-cp313-macosx_15_0_x86_64.whl", hash = "sha256:1a92919fb2057e0886f52471b39efa44893640f0f64cd32e4c942dbdc7fac461", size = 1612934, upload-time = "2026-09-08T23:21:20.199Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/60/e9ac48900e3c9be0df0b384e8b79ae646e7c021705af1e2a46e0fbc89a5b/pymsis-0.13.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5734fe189517647344e5b9bc4d647e6bcd978db235521653810a04fee7897864", size = 737675, upload-time = "2026-09-08T23:21:21.655Z" },
+    { url = "https://files.pythonhosted.org/packages/82/9c/4c88fcdd776b02800a6bef05cae6711233eb8c8e38d61049dea6546cf53e/pymsis-0.13.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2205b194a5479ceb0f7ebd8ff17f4b0873bcd06a7fa692c08257097191220e12", size = 1313559, upload-time = "2026-09-08T23:21:23.331Z" },
+    { url = "https://files.pythonhosted.org/packages/86/6e/14f95d97e55d12a948b117a11d95f09b2d62648ce94e3c53fab20be44079/pymsis-0.13.0-cp313-cp313-win_amd64.whl", hash = "sha256:a4f7730a8dc2f722329107088454902ee7fce923febf3842500d479e6b483f8e", size = 1233785, upload-time = "2026-09-08T23:21:24.876Z" },
 ]
 
 [[package]]

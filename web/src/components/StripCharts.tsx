@@ -28,6 +28,35 @@ interface Line {
   kind: "ghost" | "real" | "corrected" | "gap" | "zero";
 }
 
+interface Band {
+  t: readonly number[];
+  low: readonly (number | null)[];
+  high: readonly (number | null)[];
+}
+
+/** Closed area between two series, one sub-path per run where both are defined. */
+function bandPath(b: Band, x: (t: number) => number, y: (v: number) => number): string {
+  const parts: string[] = [];
+  let run: number[] = [];
+  const flush = () => {
+    if (run.length > 1) {
+      const top = run.map((i) => `${x(b.t[i]).toFixed(1)},${y(b.high[i] as number).toFixed(1)}`);
+      const bottom = run
+        .slice()
+        .reverse()
+        .map((i) => `${x(b.t[i]).toFixed(1)},${y(b.low[i] as number).toFixed(1)}`);
+      parts.push(`M${top.join("L")}L${bottom.join("L")}Z`);
+    }
+    run = [];
+  };
+  b.t.forEach((_, i) => {
+    if (b.low[i] === null || b.high[i] === null) flush();
+    else run.push(i);
+  });
+  flush();
+  return parts.join("");
+}
+
 export function StripCharts({ detail, mode, cursor, span, onCursor }: Props) {
   const c = charts(detail, mode);
   const corrected = mode === "corrected" && c.correctedAlt !== null;
@@ -43,6 +72,12 @@ export function StripCharts({ detail, mode, cursor, span, onCursor }: Props) {
   ];
   if (corrected && c.correctedAlt) altLines.push({ t: c.t, v: c.correctedAlt, kind: "corrected" });
 
+  const fb = detail.band;
+  const band: Band | undefined = fb ? { t: fb.t, low: fb.altitude_low, high: fb.altitude_high } : undefined;
+  const bandLabel = fb
+    ? `Band: ghost re-flown at the other ${fb.n_others} flights' drag factors (k ${fmtNum(fb.k_low, 2)}–${fmtNum(fb.k_high, 2)}) · real apogee ${fb.real_apogee_inside ? "inside" : "outside"}`
+    : undefined;
+
   const residualLabel = corrected
     ? "Δ altitude · real − corrected (held-out correction)"
     : "Δ altitude · real − ghost (physics only)";
@@ -53,7 +88,10 @@ export function StripCharts({ detail, mode, cursor, span, onCursor }: Props) {
         title="Altitude AGL"
         unit="m"
         lines={altLines}
-        data={extent(altLines.map((l) => l.v))}
+        band={band}
+        subtitle={bandLabel}
+        testId="band-label"
+        data={extent([...altLines.map((l) => l.v), ...(band ? [band.low, band.high] : [])])}
         x={x}
         cursor={cursor}
         span={span}
@@ -105,6 +143,7 @@ interface ChartProps {
   subtitle?: string;
   testId?: string;
   lines: Line[];
+  band?: Band;
   /** Extent of the plotted data; the axis labels show this, never the padding. */
   data: Domain | null;
   symmetricAroundZero?: boolean;
@@ -174,6 +213,7 @@ function Chart(p: ChartProps) {
             if (e.buttons === 1) p.onCursor(toTime(e.clientX));
           }}
         >
+          {p.band && <path d={bandPath(p.band, p.x, y)} className={styles.band} data-testid="fleet-band" />}
           {p.events.map((ev) => (
             <line
               key={`${ev.name}-${ev.t}`}

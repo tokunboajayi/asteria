@@ -245,3 +245,15 @@
     margin: 0 12px;
   }
 }
+
+/* Orbit view toolbar, top right; wraps under the badge on narrow screens. */
+.orbitTools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 2;
+}

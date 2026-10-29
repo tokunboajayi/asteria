@@ -4,6 +4,108 @@
  */
 
 export interface paths {
+    "/api/export/oem/orbit/{norad_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Orbit Oem */
+        get: operations["export_orbit_oem_api_export_oem_orbit__norad_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/export/oem/rocket/{flight_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Rocket Oem */
+        get: operations["export_rocket_oem_api_export_oem_rocket__flight_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/openmct/dictionary.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Openmct Dictionary */
+        get: operations["openmct_dictionary_api_openmct_dictionary_json_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/openmct/telemetry/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Openmct Telemetry */
+        get: operations["openmct_telemetry_api_openmct_telemetry__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orbits/density": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orbit Density */
+        get: operations["orbit_density_api_orbits_density_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orbits/ephemeris/{norad_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orbit Ephemeris */
+        get: operations["orbit_ephemeris_api_orbits_ephemeris__norad_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orbits/fleet": {
         parameters: {
             query?: never;
@@ -259,6 +361,23 @@ export interface components {
             /** Real Time S */
             real_time_s: number;
         };
+        /**
+         * BandCoverage
+         * @description How often each flight's real apogee fell inside its own leave-one-out FleetBand.
+         */
+        BandCoverage: {
+            /**
+             * Expected Inside
+             * @description Sum over flights of (n - 1) / (n + 1).
+             */
+            expected_inside: number;
+            /** Flights */
+            flights: number;
+            /** Inside */
+            inside: number;
+            /** Outside Ids */
+            outside_ids: string[];
+        };
         /** CorrectionAggregate */
         CorrectionAggregate: {
             /** Median Abs Err After Pct */
@@ -273,6 +392,7 @@ export interface components {
         /** CorrectionReport */
         CorrectionReport: {
             aggregate: components["schemas"]["CorrectionAggregate"];
+            band_coverage: components["schemas"]["BandCoverage"] | null;
             /** Clip */
             clip: [
                 number,
@@ -371,6 +491,24 @@ export interface components {
             t: number[];
             /** Vz */
             vz: (number | null)[];
+        };
+        /** DensityReport */
+        DensityReport: {
+            /** Caveats */
+            caveats: string[];
+            /** Method */
+            method: string;
+            /** Model */
+            model: string;
+            /** Objects */
+            objects: components["schemas"]["ObjectDensity"][];
+            /**
+             * Quiet Ap
+             * @description Mean daily Ap over the quiet window used as counterfactual.
+             */
+            quiet_ap: number;
+            /** Sample Step S */
+            sample_step_s: number;
         };
         /** DescentRate */
         DescentRate: {
@@ -551,6 +689,65 @@ export interface components {
             flights: components["schemas"]["FlightSummary"][];
             provenance: components["schemas"]["FleetProvenance"];
         };
+        /**
+         * FleetBand
+         * @description The ghost re-flown at the lowest and highest drag factors the OTHER flights needed.
+         *
+         *     Each flight's k_own is the drag scale that makes the ghost reach its real apogee.
+         *     Re-flying this flight at the other flights' extreme k values shows where it would
+         *     have gone had it erred like any of them. With n exchangeable flights, the range of
+         *     n others contains a new one with probability (n - 1) / (n + 1).
+         */
+        FleetBand: {
+            /** Altitude High */
+            altitude_high: (number | null)[];
+            /**
+             * Altitude Low
+             * @description m AGL; null after either run lands.
+             */
+            altitude_low: (number | null)[];
+            /** Apogee High M */
+            apogee_high_m: number;
+            /** Apogee Low M */
+            apogee_low_m: number;
+            /**
+             * Coast S
+             * @description Ghost peak vertical speed to ghost apogee, s: where drag sets the band.
+             */
+            coast_s: [
+                number,
+                number
+            ];
+            /**
+             * Expected Coverage
+             * @description (n - 1) / (n + 1) for n = n_others.
+             */
+            expected_coverage: number;
+            /** K High */
+            k_high: number;
+            /** K Low */
+            k_low: number;
+            /**
+             * N Others
+             * @description Other flights with a bracketed k_own.
+             */
+            n_others: number;
+            /** Real Apogee Inside */
+            real_apogee_inside: boolean;
+            /**
+             * Real Outside
+             * @description Intervals within the coast (ghost clock, s) where real altitude left the band.
+             */
+            real_outside: [
+                number,
+                number
+            ][];
+            /**
+             * T
+             * @description Ghost time grid, s (same as ghost.t).
+             */
+            t: number[];
+        };
         /** FleetFingerprint */
         FleetFingerprint: {
             /** Method */
@@ -577,6 +774,8 @@ export interface components {
         };
         /** FlightDetail */
         FlightDetail: {
+            /** @description Null when fewer than two other flights have a bracketed k_own. */
+            band: components["schemas"]["FleetBand"] | null;
             corrected: components["schemas"]["GhostSeries"] | null;
             delta: components["schemas"]["DeltaSeries"];
             diagnostics: components["schemas"]["Diagnostics"];
@@ -588,6 +787,11 @@ export interface components {
             real: components["schemas"]["RealSeries"];
             summary: components["schemas"]["FlightSummary"];
             timing: components["schemas"]["EventTiming"];
+            /**
+             * Weather Time Utc
+             * @description UTC hour of the notebook's weather data (Environment date); the ghost's clock origin. Not a recorded launch time. Null if the notebook set no date.
+             */
+            weather_time_utc: string | null;
         };
         /** FlightSummary */
         FlightSummary: {
@@ -719,6 +923,15 @@ export interface components {
             /** Tracked Lon */
             tracked_lon: number[];
         };
+        /** GeoPoint */
+        GeoPoint: {
+            /** Alt Km */
+            alt_km: number;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+        };
         /** GhostSeries */
         GhostSeries: {
             /**
@@ -829,6 +1042,75 @@ export interface components {
                 number
             ];
         };
+        /** ObjectDensity */
+        ObjectDensity: {
+            /**
+             * Density Kg M3
+             * @description Orbit-averaged, real indices.
+             */
+            density_kg_m3: number[];
+            /** Mean Altitude Km */
+            mean_altitude_km: number;
+            /** Name */
+            name: string;
+            /** Norad Id */
+            norad_id: number;
+            /** Peak Ratio */
+            peak_ratio: number;
+            /** Peak Time */
+            peak_time: string;
+            /**
+             * Quiet Density Kg M3
+             * @description Same positions and F10.7, geomagnetic ap held at its quiet-window mean.
+             */
+            quiet_density_kg_m3: number[];
+            /**
+             * Ratio
+             * @description density / quiet_density
+             */
+            ratio: number[];
+            /**
+             * Times
+             * @description Hourly, UTC.
+             */
+            times: string[];
+        };
+        /** ObjectEphemeris */
+        ObjectEphemeris: {
+            /**
+             * Arc Epoch
+             * @description Start of both one-revolution arcs (last tracked epoch).
+             */
+            arc_epoch: string;
+            /**
+             * Ghost Arc
+             * @description Ghost's element set, one revolution.
+             */
+            ghost_arc: components["schemas"]["GeoPoint"][];
+            /** Name */
+            name: string;
+            /** Norad Id */
+            norad_id: number;
+            /**
+             * Period Min
+             * @description From the latest element set's mean motion.
+             */
+            period_min: number;
+            /**
+             * Source
+             * @description How the states were made: each from the latest element set at or before it.
+             */
+            source: string;
+            /** States */
+            states: components["schemas"]["StateVector"][];
+            /** Step S */
+            step_s: number;
+            /**
+             * Tracked Arc
+             * @description Latest tracked element set, one revolution.
+             */
+            tracked_arc: components["schemas"]["GeoPoint"][];
+        };
         /** OmniSource */
         OmniSource: {
             /** Downloaded At */
@@ -837,6 +1119,50 @@ export interface components {
             sha256: string;
             /** Url */
             url: string;
+        };
+        /** OpenMctDictionary */
+        OpenMctDictionary: {
+            /** Key */
+            key: string;
+            /** Measurements */
+            measurements: components["schemas"]["OpenMctMeasurement"][];
+            /** Name */
+            name: string;
+        };
+        /** OpenMctMeasurement */
+        OpenMctMeasurement: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Values */
+            values: components["schemas"]["OpenMctValue"][];
+        };
+        /** OpenMctPoint */
+        OpenMctPoint: {
+            /** Id */
+            id: string;
+            /** Timestamp */
+            timestamp: number;
+            /** Value */
+            value: number;
+        };
+        /** OpenMctValue */
+        OpenMctValue: {
+            /** Format */
+            format: string;
+            /** Hints */
+            hints: {
+                [key: string]: number;
+            };
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Source */
+            source?: string | null;
+            /** Units */
+            units?: string | null;
         };
         /** OrbitFleet */
         OrbitFleet: {
@@ -1022,6 +1348,26 @@ export interface components {
             /** Times */
             times: string[];
         };
+        /**
+         * StateVector
+         * @description TEME position (km) and velocity (km/s) from SGP4, as Space-Track's elements define.
+         */
+        StateVector: {
+            /** Epoch */
+            epoch: string;
+            /** R Km */
+            r_km: [
+                number,
+                number,
+                number
+            ];
+            /** V Km S */
+            v_km_s: [
+                number,
+                number,
+                number
+            ];
+        };
         /** StormInfo */
         StormInfo: {
             /** Follow Days */
@@ -1126,6 +1472,170 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    export_orbit_oem_api_export_oem_orbit__norad_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                norad_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_rocket_oem_api_export_oem_rocket__flight_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flight_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    openmct_dictionary_api_openmct_dictionary_json_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenMctDictionary"];
+                };
+            };
+        };
+    };
+    openmct_telemetry_api_openmct_telemetry__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenMctPoint"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    orbit_density_api_orbits_density_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DensityReport"];
+                };
+            };
+        };
+    };
+    orbit_ephemeris_api_orbits_ephemeris__norad_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                norad_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObjectEphemeris"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     orbits_fleet_api_orbits_fleet_get: {
         parameters: {
             query?: never;

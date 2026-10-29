@@ -5,25 +5,31 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import PlainTextResponse
 
 from asteria import __version__
 from asteria.api.store import OrbitStore, RocketStore, load_orbits, load_rockets
 from asteria.artifacts import ArtifactError
 from asteria.config import paths, setting
+from asteria.export.oem import format_oem, geodetic_to_ecef_km
+from asteria.export.openmct import Catalog, OpenMctDictionary, OpenMctPoint
 from asteria.models import (
     CorrectionReport,
     Debrief,
+    DensityReport,
     Fleet,
     FleetFingerprint,
     FlightDetail,
     GapMap,
     Health,
     NextBest,
+    ObjectEphemeris,
     OrbitFleet,
     OrbitsStatus,
     SpaceWeatherSeries,
@@ -183,3 +189,99 @@ def orbits_spaceweather(request: Request) -> SpaceWeatherSeries:
 @app.get("/api/orbits/gapmap", response_model=GapMap)
 def orbits_gapmap(request: Request) -> GapMap:
     return _orbits(request).gapmap
+
+
+# --- Orbits: ephemerides, arcs and modelled density --------------------------
+def _ephemeris(request: Request, norad_id: int) -> ObjectEphemeris:
+    eph = next((e for e in _orbits(request).ephemerides.objects if e.norad_id == norad_id), None)
+    if eph is None:
+        raise HTTPException(status_code=404, detail="no ephemeris for that NORAD id")
+    return eph
+
+
+@app.get("/api/orbits/ephemeris/{norad_id}", response_model=ObjectEphemeris)
+def orbit_ephemeris(norad_id: int, request: Request) -> ObjectEphemeris:
+    return _ephemeris(request, norad_id)
+
+
+@app.get("/api/orbits/density", response_model=DensityReport)
+def orbit_density(request: Request) -> DensityReport:
+    report = _orbits(request).density
+    if report is None:
+        raise HTTPException(status_code=404, detail="no quiet window, so no density counterfactual")
+    return report
+
+
+# --- Exports: CCSDS OEM and NASA Open MCT ---------------------------------------
+_OEM = PlainTextResponse
+
+
+@app.get("/api/export/oem/orbit/{norad_id}", response_class=_OEM)
+def export_orbit_oem(norad_id: int, request: Request) -> str:
+    eph = _ephemeris(request, norad_id)
+    return format_oem(
+        object_name=eph.name,
+        object_id=str(norad_id),
+        ref_frame="TEME",
+        epochs=[s.epoch for s in eph.states],
+        positions_km=[s.r_km for s in eph.states],
+        velocities_km_s=[s.v_km_s for s in eph.states],
+        comments=[
+            eph.source,
+            f"Step {eph.step_s:g} s. Element sets: Space-Track.org (US Space Force).",
+        ],
+    )
+
+
+@app.get("/api/export/oem/rocket/{flight_id}", response_class=_OEM)
+def export_rocket_oem(flight_id: str, request: Request) -> str:
+    store = _rockets(request)
+    f = store.flights.get(flight_id)
+    if f is None:
+        raise HTTPException(status_code=404, detail="unknown flight")
+    if f.weather_time_utc is None:
+        raise HTTPException(
+            status_code=404, detail="the notebook sets no date, so the ghost has no UTC clock"
+        )
+    t0 = datetime.fromisoformat(f.weather_time_utc.replace("Z", "+00:00"))
+    site = f.summary.launch_site
+    g = f.ghost
+    return format_oem(
+        object_name=f"{f.summary.name} ghost",
+        object_id=f.summary.id,
+        ref_frame="ITRF2000",
+        epochs=[(t0 + timedelta(seconds=t)).isoformat() for t in g.t],
+        positions_km=[
+            geodetic_to_ecef_km(lat, lon, (site.elevation_m + alt) / 1000.0)
+            for lat, lon, alt in zip(g.latitude, g.longitude, g.altitude, strict=True)
+        ],
+        velocities_km_s=None,
+        comments=[
+            "RocketPy ghost trajectory (the notebook's reconstruction), not the recorded flight.",
+            "Epoch 0 is the notebook's weather time (Environment date, UTC hour), not a "
+            "recorded launch time.",
+            "WGS-84 geodetic to Earth-fixed; height = site elevation + altitude AGL, i.e. above "
+            "mean sea level, not the ellipsoid (geoid offset under 110 m).",
+        ],
+    )
+
+
+def _catalog(request: Request) -> Catalog:
+    return Catalog(request.app.state.rockets, request.app.state.orbits)
+
+
+@app.get(
+    "/api/openmct/dictionary.json",
+    response_model=OpenMctDictionary,
+    response_model_exclude_none=True,
+)
+def openmct_dictionary(request: Request) -> OpenMctDictionary:
+    return _catalog(request).dictionary()
+
+
+@app.get("/api/openmct/telemetry/{key}", response_model=list[OpenMctPoint])
+def openmct_telemetry(key: str, request: Request) -> list[OpenMctPoint]:
+    points = _catalog(request).telemetry(key)
+    if points is None:
+        raise HTTPException(status_code=404, detail="unknown telemetry key")
+    return points

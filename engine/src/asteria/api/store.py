@@ -9,6 +9,8 @@ from asteria.artifacts import verified
 from asteria.models import (
     CorrectionReport,
     Debrief,
+    DensityReport,
+    Ephemerides,
     Fleet,
     FleetFingerprint,
     FlightDetail,
@@ -61,6 +63,8 @@ class OrbitStore:
     fleet: OrbitFleet
     spaceweather: SpaceWeatherSeries
     gapmap: GapMap
+    ephemerides: Ephemerides
+    density: DensityReport | None
     manifest: dict[str, object]
 
 
@@ -74,5 +78,11 @@ def load_orbits(root: Path) -> OrbitStore:
         fleet=OrbitFleet.model_validate_json(read("fleet.json")),
         spaceweather=SpaceWeatherSeries.model_validate_json(read("spaceweather.json")),
         gapmap=GapMap.model_validate_json(read("gapmap.json")),
+        ephemerides=Ephemerides.model_validate_json(read("ephemeris.json")),
+        density=(
+            DensityReport.model_validate_json(read("density.json"))
+            if (root / "density.json").is_file()
+            else None
+        ),
         manifest=manifest,
     )

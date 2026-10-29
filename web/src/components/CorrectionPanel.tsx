@@ -71,6 +71,13 @@ export function CorrectionPanel({ report, flightId }: Props) {
           ))}
         </tbody>
       </table>
+      {r.band_coverage && (
+        <p className={styles.note} data-testid="band-coverage">
+          Fleet band check: {r.band_coverage.inside} of {r.band_coverage.flights} real apogees fell inside the band
+          built from the other flights (expected {fmtNum(r.band_coverage.expected_inside, 1)}).
+          {r.band_coverage.outside_ids.length > 0 && ` Outside: ${r.band_coverage.outside_ids.join(", ")}.`}
+        </p>
+      )}
     </section>
   );
 }
