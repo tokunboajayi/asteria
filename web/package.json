@@ -2,6 +2,7 @@
   "name": "asteria-web",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "postinstall": "node scripts/copy-cesium.mjs",
     "gen:types": "openapi-typescript ../engine/openapi.json -o src/lib/api-types.ts",

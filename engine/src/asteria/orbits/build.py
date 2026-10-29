@@ -37,7 +37,9 @@ OMNI_SOURCE = "NASA GSFC SPDF OMNI2 hourly (omni2_YYYY.dat)"
 
 
 def _iso(t: datetime) -> str:
-    return t.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    """UTC, to the millisecond (truncated). Seconds alone would merge distinct element
+    sets: Space-Track fits for one object can be issued under epochs < 1 s apart."""
+    return t.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _series(

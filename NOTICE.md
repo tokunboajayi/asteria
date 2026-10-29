@@ -39,3 +39,6 @@ Asteria's own code is under the MIT licence (see LICENSE). It uses:
   (Esri, Maxar, Earthstar Geographics), under Esri's terms of use. With a
   Cesium ion token: Cesium ion terms apply.
 - Next.js and React (MIT); IBM Plex fonts (SIL Open Font Licence).
+
+For what each of these means for a commercial deployment, see
+[README → Commercial use](README.md#commercial-use).

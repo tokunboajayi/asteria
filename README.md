@@ -1,5 +1,8 @@
 # Asteria
 
+[![CI](https://github.com/tokunboajayi/asteria/actions/workflows/ci.yml/badge.svg)](https://github.com/tokunboajayi/asteria/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Mission control for the gap between prediction and reality.**
 
 A physics *ghost* flies first. The *real* flight is laid over it. Asteria
@@ -11,8 +14,8 @@ teach the model the most.
 - **Rockets** (built): 11 real high-power rocket flights from university teams.
   The ghost is RocketPy's own published reconstruction of each flight, run
   unmodified; the reality is each team's published flight log.
-- **Orbits · Storm Ghost** (built, waiting for data): SGP4 orbit ghosts vs.
-  later tracking across the May 2024 geomagnetic storm, with NASA OMNI
+- **Orbits · Storm Ghost** (built): SGP4 orbit ghosts vs. later tracking for
+  12 satellites across the May 2024 geomagnetic storm, with NASA OMNI
   space-weather indices. Needs a free Space-Track.org login (see below).
 
 ## What the data says (Rockets)
@@ -200,9 +203,27 @@ cd web; npx playwright install chromium; npm run test:acceptance
 - Barometric altimeters can misread near the speed of sound; transonic gap
   cells may hold sensor error as well as physics error.
 - Storm Ghost's tracked orbits are orbit fits to tracking data, not direct
-  measurements. Its view has not been checked against real data until a
-  Space-Track login is added.
+  measurements. Where Space-Track re-issued a fit for the same epoch, only
+  the latest issue is used.
 - Next Best Flight names the envelope to fly; it does not design the vehicle.
+
+## Commercial use
+
+Asteria's code is MIT-licensed: you may use, modify and sell it, keeping the
+copyright notice. **The services and data it connects to have their own terms**,
+and those, not the code licence, decide what a commercial deployment needs:
+
+| Dependency | Free use | Commercial deployment |
+|---|---|---|
+| Cesium ion (terrain, optional token) | Community plan: personal and non-commercial use, and commercial evaluation | A paid Cesium ion plan for organisations over Cesium's revenue/funding threshold; or run without a token (Esri imagery fallback) |
+| Esri World Imagery (default imagery) | Attribution required (shown on the globe) | Check Esri's terms; production apps are expected to use an ArcGIS Location Platform account and API key |
+| Space-Track.org (orbits) | Free account; user agreement | Raw data may not be redistributed. Serving Storm Ghost results to customers needs Space-Track's approval under its agreement; check before offering it |
+| NASA OMNI2 | US Government data, no restriction | Same; credit NASA GSFC SPDF |
+| RocketPy and team flight logs | MIT; logs published in RocketPy with each team's permission | Keep the credits in NOTICE.md; ask the teams before marketing results about their flights |
+| ERA5 weather (via RocketPy) | Copernicus licence, attribution | Same; commercial use permitted with attribution |
+
+None of the above is legal advice; read each provider's current terms before
+you charge for a deployment.
 
 ## Credits
 

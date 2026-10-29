@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Asteria engine: physics ghost vs. recorded reality, measured and explained."
 readme = "README.md"
 license = "MIT"
+authors = [{ name = "Olatokunbo Ajayi" }]
 requires-python = ">=3.11,<3.14"
 dependencies = [
     # Physics. Pinned to the release whose example notebooks and data Asteria executes.
@@ -19,6 +20,10 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
 ]
+
+
+[project.urls]
+Repository = "https://github.com/tokunboajayi/asteria"
 
 [project.scripts]
 asteria = "asteria.cli:main"
