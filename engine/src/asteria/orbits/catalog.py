@@ -19,8 +19,8 @@ reaches −395 nT at 03:00 UTC (checked against omni2_2024.dat on 2026-10-20).
 
 Rules
 -----
-* One element set per epoch: Space-Track sometimes re-issues a fit for the same
-  epoch; only the latest issue (``CREATION_DATE``, then ``GP_ID``) is used, the
+* One element set per epoch (to the second): Space-Track sometimes re-issues a
+  fit for the same epoch; only the latest issue (``CREATION_DATE``, then ``GP_ID``) is used, the
   way Space-Track's own current catalog supersedes it.
 * Ghost: SGP4 from the last element set with epoch before ``STORM_ONSET``.
 * Tracked: every later element set within ``FOLLOW_DAYS``, evaluated by SGP4 at

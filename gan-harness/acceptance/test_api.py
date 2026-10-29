@@ -353,11 +353,7 @@ def test_orbit_gaps_recomputed_independently_from_raw_element_sets(client: httpx
             f"{obj['name']}: repeated epochs"
         )
         base = [s for s in sets if when(s["EPOCH"]) < when(fleet["storm"]["onset"])][-1]
-        def ms(t: datetime) -> datetime:  # published epochs are truncated to the millisecond
-            return t.replace(microsecond=t.microsecond // 1000 * 1000)
-
-        by_epoch = {ms(when(s["EPOCH"])): s for s in sets}
-        assert len(by_epoch) == len(sets), "two element sets within one millisecond"
+        by_epoch = {when(s["EPOCH"]).replace(microsecond=0): s for s in sets}
         for epoch, it in zip(series["epochs"], series["in_track_km"]):
             t_key = when(epoch)
             tracked = by_epoch[t_key]

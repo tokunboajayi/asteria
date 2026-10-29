@@ -55,9 +55,11 @@ def _epoch(text: str) -> datetime:
 
 
 def latest_issue_per_epoch(records: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One record per (object, epoch): the latest issued, by CREATION_DATE then GP_ID.
+    """One record per (object, epoch to the second): the latest issued, by CREATION_DATE
+    then GP_ID.
 
-    Space-Track re-publishes corrected fits under the same epoch. Keeping every copy
+    Space-Track re-publishes corrected fits under the same epoch, sometimes shifted by
+    a fraction of a second. Keeping every copy
     would chart two gaps at one instant and count that instant twice in the gap map.
     """
     latest: dict[tuple[int, datetime], dict[str, Any]] = {}

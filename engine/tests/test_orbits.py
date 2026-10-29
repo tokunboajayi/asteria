@@ -236,6 +236,9 @@ def test_a_reissued_epoch_keeps_only_the_latest_issue() -> None:
     other = rec(5, "2024-05-12T00:00:00", epoch="2024-05-12T08:00:00")
     assert ghost.latest_issue_per_epoch([newer, older, other]) == [newer, other]
     assert ghost.latest_issue_per_epoch([tie_high, tie_low]) == [tie_high]
+    # A re-issue shifted by a fraction of a second is the same epoch.
+    shifted = rec(30, "2024-05-15T00:00:00", epoch="2024-05-13T11:25:59.654321")
+    assert ghost.latest_issue_per_epoch([newer, shifted]) == [shifted]
 
 
 # --- Catalog ----------------------------------------------------------------------
