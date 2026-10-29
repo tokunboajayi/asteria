@@ -16,10 +16,10 @@ interface Props {
   selected: number | null;
 }
 
-// SVG units; the SVG scales to the panel width, so text is never drawn below its size.
-const W = 300;
-const H = 150;
-const M = { left: 34, right: 8, top: 8, bottom: 22 };
+// SVG units. The plot is capped at W px wide (see .plot), so text stays at its stated size.
+const W = 640;
+const H = 220;
+const M = { left: 40, right: 10, top: 10, bottom: 26 };
 
 /**
  * NRLMSIS 2.1 density at each satellite's real positions, divided by the same model with
@@ -54,7 +54,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
         according to NRLMSIS 2.1 driven by NASA OMNI indices. A model, not a measurement: the measured in-track
         gap is beside it.
       </p>
-      <div className={analysis.plot} data-testid="density-plot">
+      <div className={styles.plot} data-testid="density-plot">
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Modelled density ratio over time, per satellite">
           {yTicks.map((v) => (
             <text key={v} x={M.left - 5} y={y(v) + 4} textAnchor="end" className={analysis.tick}>
@@ -95,13 +95,13 @@ export function DensityPanel({ density, objects, selected }: Props) {
           <dd>{measured(mine.norad_id) === null ? "—" : `${fmtSigned(measured(mine.norad_id) ?? 0, 1)} km`}</dd>
         </dl>
       )}
-      <table className={panel.bars} aria-label="Peak modelled density ratio and measured gap, per satellite">
+      <table className={styles.table} aria-label="Peak modelled density ratio and measured gap, per satellite">
         <thead>
           <tr>
             <th scope="col">Object</th>
             <th scope="col">Alt km</th>
-            <th scope="col">Peak ×</th>
-            <th scope="col">Gap km</th>
+            <th scope="col">Peak (model)</th>
+            <th scope="col">Last gap km (measured)</th>
           </tr>
         </thead>
         <tbody>
@@ -110,10 +110,10 @@ export function DensityPanel({ density, objects, selected }: Props) {
             .map((o) => {
               const g = measured(o.norad_id);
               return (
-                <tr key={o.norad_id} className={o.norad_id === selected ? panel.selected : undefined}>
+                <tr key={o.norad_id} className={o.norad_id === selected ? styles.selected : undefined}>
                   <th scope="row">{o.name}</th>
                   <td>{fmtNum(o.mean_altitude_km, 0)}</td>
-                  <td>{fmtNum(o.peak_ratio, 2)}</td>
+                  <td>{fmtNum(o.peak_ratio, 2)}×</td>
                   <td>{g === null ? "—" : fmtSigned(g, 1)}</td>
                 </tr>
               );

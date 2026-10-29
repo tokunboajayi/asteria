@@ -13,3 +13,42 @@
   stroke: var(--gap);
   stroke-width: 2;
 }
+
+.plot {
+  max-width: 640px;
+}
+
+.plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.table {
+  width: 100%;
+  max-width: 640px;
+  border-collapse: collapse;
+  font: 400 12px var(--font-mono);
+}
+
+.table th,
+.table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table th:first-child {
+  text-align: left;
+}
+
+.table thead th {
+  font-weight: 500;
+  color: var(--text-label);
+}
+
+.selected th,
+.selected td {
+  color: var(--gap);
+}

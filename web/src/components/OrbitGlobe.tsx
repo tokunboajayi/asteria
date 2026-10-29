@@ -14,7 +14,6 @@ import {
   EllipsoidTerrainProvider,
   type Entity,
   HeadingPitchRange,
-  HorizontalOrigin,
   ImageryLayer,
   Ion,
   LabelStyle,
@@ -22,13 +21,11 @@ import {
   Matrix4,
   PolylineDashMaterialProperty,
   UrlTemplateImageryProvider,
-  VerticalOrigin,
   Viewer,
 } from "cesium";
 import { useEffect, useRef, useState } from "react";
 
 import type { GapSeries, GeoPoint, ObjectEphemeris } from "@/lib/api";
-import { fmtSigned } from "@/lib/format";
 
 import styles from "./GlobeView.module.css";
 
@@ -87,7 +84,6 @@ export function OrbitGlobe({ name, series, ephemeris, epochIndex, errorScale, ca
   const ghostMarker = useRef<Entity | null>(null);
   const trackedMarker = useRef<Entity | null>(null);
   const gapLine = useRef<Entity | null>(null);
-  const gapLabel = useRef<Entity | null>(null);
   // Overview flies once per object or mode change, not on every scrub.
   const lastOverview = useRef<string | null>(null);
 
@@ -196,7 +192,7 @@ export function OrbitGlobe({ name, series, ephemeris, epochIndex, errorScale, ca
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
       label: {
-        text: "SGP4 GHOST",
+        text: "GHOST",
         font: MONO_SMALL,
         fillColor: GHOST,
         style: LabelStyle.FILL,
@@ -217,7 +213,7 @@ export function OrbitGlobe({ name, series, ephemeris, epochIndex, errorScale, ca
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
       label: {
-        text: `${name} (TRACKED)`,
+        text: "TRACKED",
         font: MONO,
         fillColor: REAL,
         style: LabelStyle.FILL,
@@ -235,22 +231,6 @@ export function OrbitGlobe({ name, series, ephemeris, epochIndex, errorScale, ca
         positions: [],
         width: 4,
         material: GAP,
-      },
-    });
-
-    gapLabel.current = viewer.entities.add({
-      label: {
-        text: "",
-        font: MONO,
-        fillColor: GAP,
-        style: LabelStyle.FILL,
-        showBackground: true,
-        backgroundColor: LABEL_BG,
-        backgroundPadding: new Cartesian2(8, 4),
-        horizontalOrigin: HorizontalOrigin.CENTER,
-        verticalOrigin: VerticalOrigin.BOTTOM,
-        pixelOffset: new Cartesian2(0, -12),
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     });
 
@@ -285,15 +265,6 @@ export function OrbitGlobe({ name, series, ephemeris, epochIndex, errorScale, ca
 
     if (gapLine.current && gapLine.current.polyline) {
       gapLine.current.polyline.positions = new ConstantProperty([gCart, effectiveTracked]);
-    }
-
-    if (gapLabel.current && gapLabel.current.label) {
-      const mid = Cartesian3.midpoint(gCart, effectiveTracked, new Cartesian3());
-      gapLabel.current.position = new ConstantPositionProperty(mid);
-      gapLabel.current.label.text = new ConstantProperty(
-        `In-track ${fmtSigned(series.in_track_km[k], 1)} km · radial ${fmtSigned(series.radial_km[k], 2)} km` +
-          (errorScale > 1 ? ` (drawn ${errorScale}×)` : ""),
-      );
     }
 
     // Camera: lookAt locks the camera to a point, so release it before flying elsewhere.
