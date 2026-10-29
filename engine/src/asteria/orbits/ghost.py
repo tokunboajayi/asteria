@@ -66,7 +66,7 @@ def latest_issue_per_epoch(records: Sequence[dict[str, Any]]) -> list[dict[str, 
         return _epoch(str(r["CREATION_DATE"])), int(r["GP_ID"])
 
     for r in records:
-        key = (int(r["NORAD_CAT_ID"]), _epoch(str(r["EPOCH"])))
+        key = (int(r["NORAD_CAT_ID"]), _epoch(str(r["EPOCH"])).replace(microsecond=0))
         if key not in latest or issued(r) > issued(latest[key]):
             latest[key] = r
     return list(latest.values())

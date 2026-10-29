@@ -51,6 +51,8 @@ def ensure_checkout(checkout: Path) -> Path:
     if tmp.exists():
         shutil.rmtree(tmp)
     _git(["init", "-q", str(tmp)])
+    _git(["config", "core.autocrlf", "false"], cwd=tmp)
+    _git(["config", "core.eol", "lf"], cwd=tmp)
     _git(["remote", "add", "origin", ROCKETPY_REPO_URL], cwd=tmp)
     _git(["sparse-checkout", "set", *ROCKETPY_SPARSE_PATHS], cwd=tmp)
     _git(["fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", ROCKETPY_COMMIT], cwd=tmp)
