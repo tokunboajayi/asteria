@@ -176,3 +176,36 @@ for (const size of REPLAY_SIZES) {
     await expect(page.getByTestId("replay-hud")).toHaveCount(0);
   });
 }
+
+// Orbits tab: only when orbit artifacts exist (they need a Space-Track login).
+const ORBIT_SIZES = SIZES.filter((s) => s.name === "desktop" || s.name === "laptop" || s.name === "phone");
+
+for (const size of ORBIT_SIZES) {
+  test(`orbits tab readable at ${size.name} ${size.width}×${size.height}`, async ({ page, request }) => {
+    const api = process.env.API_URL ?? "http://127.0.0.1:8000";
+    const status = await (await request.get(`${api}/api/orbits/status`)).json();
+    test.skip(!status.available, "orbit artifacts not built");
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await openConsole(page);
+    await page.getByRole("tab", { name: /orbits/i }).click();
+    await expect(page.getByTestId("orbit-globe")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("density-plot")).toBeVisible();
+    await page.waitForTimeout(1500);
+
+    const globe = await page.getByTestId("orbit-globe").boundingBox();
+    expect.soft(globe?.height ?? 0, "orbit view keeps a usable height").toBeGreaterThanOrEqual(MIN_GLOBE_PX);
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect.soft(scrollWidth, "no sideways page scroll").toBeLessThanOrEqual(size.width);
+    const boxes = await textBoxes(page);
+    const tiny = [...new Set(boxes.filter((b) => b.fontPx < MIN_FONT_PX).map((b) => `${b.owner} ${b.fontPx}px`))];
+    expect.soft(tiny, `no text under ${MIN_FONT_PX}px`).toEqual([]);
+    expect.soft(overlaps(boxes), "no overlapping text").toEqual([]);
+
+    await page.getByRole("button", { name: /CCSDS OEM/ }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page.getByTestId("oem-download")).toHaveAttribute("href", /\/api\/export\/oem\/orbit\/\d+$/);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  });
+}
