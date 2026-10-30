@@ -59,11 +59,13 @@ jobs:
         run: docker compose config --quiet
       - name: API image
         run: docker build -f engine/Dockerfile -t asteria-api:ci .
-      - name: API image starts and answers /health (artifacts absent → reports not loaded)
+      - name: API image starts; without artifacts it is alive but not ready
         run: |
           docker run -d --name api -p 8000:8000 asteria-api:ci
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done
           curl -fsS http://127.0.0.1:8000/health
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/ready)
+          test "$code" = "503" || { echo "::error::/ready gave $code without artifacts"; exit 1; }
           docker logs api
           docker rm -f api
       - name: Console image

@@ -274,6 +274,10 @@ NEXT_PUBLIC_API_URL=https://api.your-domain ASTERIA_WEB_ORIGINS=https://your-dom
 - The API image serves the prebuilt, hash-verified artifacts **read-only**
   (`/data` is mounted read-only, the container filesystem is read-only, it
   runs as a non-root user). It does not include the NRLMSIS extra.
+- `/health` is liveness (always answers; `detail` says why data failed to
+  load). `/ready` returns 503 until the hash-verified artifacts are loaded:
+  route traffic on it. Artifacts built by an older engine version are
+  rejected, so rebuild them after upgrading.
 - Put both behind a TLS reverse proxy. `NEXT_PUBLIC_` values are compiled
   into the browser bundle: only a URL-restricted, read-only Cesium token
   belongs there.

@@ -19,6 +19,8 @@
   with a no-secrets check; `asteria fetch-data` for the optional data.
 
 ### Changed
+- `/ready` (503 until artifacts load) for orchestrators; `/health` now says why
+  data failed to load. Artifacts from 0.1.0 must be rebuilt.
 - NRLMSIS model comparison is **optional and off by default** (`model` extra,
   `ASTERIA_DENSITY_MODEL`): NRL licenses MSIS2 for non-commercial use only.
 - One Space-Track element set per epoch (the latest issue).

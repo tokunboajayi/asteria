@@ -44,3 +44,18 @@ def test_blank_value_in_a_higher_file_does_not_hide_a_lower_one(repo: Path) -> N
 
 def test_missing_setting_falls_back_to_default(repo: Path) -> None:
     assert config.setting("ASTERIA_TEST_KEY", "default") == "default"
+
+
+def test_ready_is_503_when_rocket_artifacts_do_not_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("ASTERIA_ARTIFACTS", str(tmp_path / "missing"))
+    monkeypatch.setenv("ASTERIA_ORBITS_ARTIFACTS", str(tmp_path / "missing-orbits"))
+    from asteria.api.app import app
+
+    with TestClient(app) as client:
+        h = client.get("/health")
+        assert h.status_code == 200 and h.json()["ok"] is False and h.json()["detail"]
+        assert client.get("/ready").status_code == 503

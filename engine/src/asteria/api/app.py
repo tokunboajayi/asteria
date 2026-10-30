@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from asteria import __version__
 from asteria.api.store import OrbitStore, RocketStore, load_orbits, load_rockets
@@ -108,7 +108,18 @@ def health(request: Request) -> Health:
         rocket_flights=len(store.fleet.flights) if store else 0,
         orbits_available=request.app.state.orbits is not None,
         engine_version=__version__,
+        detail=None if store is not None else request.app.state.load_error,
     )
+
+
+@app.get("/ready", response_model=Health, responses={503: {"model": Health}})
+def ready(request: Request) -> JSONResponse:
+    """Readiness: 200 only when the hash-verified rocket artifacts are loaded, else 503.
+
+    /health always answers (liveness); orchestrators should route traffic on /ready.
+    """
+    body = health(request)
+    return JSONResponse(body.model_dump(), status_code=200 if body.ok else 503)
 
 
 @app.get("/api/rockets/fleet", response_model=Fleet)

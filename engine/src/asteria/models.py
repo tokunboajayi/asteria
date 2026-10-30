@@ -474,6 +474,9 @@ class Health(Model):
     rocket_flights: int
     orbits_available: bool
     engine_version: str
+    detail: str | None = Field(
+        default=None, description="Why the rocket artifacts did not load, when ok is false."
+    )
 
 
 class OrbitsStatus(Model):
