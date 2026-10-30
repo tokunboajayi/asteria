@@ -40,11 +40,17 @@ export function DensityPanel({ density, objects, selected }: Props) {
     const s = objects.find((o) => o.norad_id === id)?.storm;
     return s && s.in_track_km.length > 0 ? s.in_track_km[s.in_track_km.length - 1] : null;
   };
-  const decayPeak = (id: number) => {
-    const p = d.decay.find((o) => o.norad_id === id)?.peak;
-    return p && p.measured_ratio !== null
-      ? `${fmtNum(p.measured_ratio, 2)} ± ${fmtNum(p.measured_err ?? 0, 2)}×`
-      : "—";
+  /** Main-phase interval: measured from decay and NRLMSIS over the same interval. */
+  const mainPhase = (id: number) => {
+    const b = d.decay.find((o) => o.norad_id === id)?.bins[0];
+    return (
+      <>
+        <td>
+          {b?.measured_ratio != null ? `${fmtNum(b.measured_ratio, 2)} ± ${fmtNum(b.measured_err ?? 0, 2)}` : "—"}
+        </td>
+        <td>{b?.model_ratio != null ? fmtNum(b.model_ratio, 2) : "—"}</td>
+      </>
+    );
   };
   const yTicks = [1, ...[2, 3, 4, 5, 6, 8, 10].filter((v) => v < yMax)];
 
@@ -57,9 +63,9 @@ export function DensityPanel({ density, objects, selected }: Props) {
         <span className={panel.tagNeutral}>Model · measured</span>
       </div>
       <p className={panel.lead}>
-        How much the storm&apos;s geomagnetic heating raised air density along each satellite&apos;s real orbit,
-        according to NRLMSIS 2.1 driven by NASA OMNI indices. A model, not a measurement: the measured in-track
-        gap is beside it.
+        How much the storm raised air density along each satellite&apos;s real orbit. The curves are NRLMSIS 2.1
+        driven by NASA OMNI indices (storm ÷ the same orbit with quiet geomagnetic activity). The table measures
+        it from each satellite&apos;s own orbit decay and sets the model beside it over the same interval.
       </p>
       <div className={styles.plot} data-testid="density-plot">
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Modelled density ratio over time, per satellite">
@@ -107,13 +113,13 @@ export function DensityPanel({ density, objects, selected }: Props) {
         const dec = d.decay.find((o) => o.norad_id === selected);
         return dec ? <DecayChart d={dec} /> : null;
       })()}
-      <table className={styles.table} aria-label="Peak modelled density ratio and measured gap, per satellite">
+      <table className={styles.table} aria-label="Main-phase density ratio, measured and modelled, and measured gap, per satellite">
         <thead>
           <tr>
             <th scope="col">Object</th>
             <th scope="col">Alt km</th>
-            <th scope="col">Peak (model)</th>
-            <th scope="col">Peak measured (decay)</th>
+            <th scope="col">Main phase measured ×</th>
+            <th scope="col">Model ×</th>
             <th scope="col">Last gap km (measured)</th>
           </tr>
         </thead>
@@ -126,8 +132,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
                 <tr key={o.norad_id} className={o.norad_id === selected ? styles.selected : undefined}>
                   <th scope="row">{o.name}</th>
                   <td>{fmtNum(o.mean_altitude_km, 0)}</td>
-                  <td>{fmtNum(o.peak_ratio, 2)}×</td>
-                  <td>{decayPeak(o.norad_id)}</td>
+                  {mainPhase(o.norad_id)}
                   <td>{g === null ? "—" : fmtSigned(g, 1)}</td>
                 </tr>
               );
