@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 
 from asteria.rockets.telemetry import ExtraChannel, GnssSpec, LogSpec, UtcClockSpec
 
@@ -48,6 +49,19 @@ def metre_decimals(quote: str) -> int:
 
 
 @dataclass(frozen=True)
+class RealWeatherSpec:
+    """The notebook's reanalysis is for another date; re-fly on the launch day's ERA5.
+
+    `launch_date` must equal the real liftoff's UTC date (checked at build).
+    `control_date` is the notebook's own weather date, re-downloaded as a control.
+    """
+
+    launch_date: date
+    control_date: date
+    reason: str
+
+
+@dataclass(frozen=True)
 class FlightSpec:
     id: str
     name: str
@@ -61,6 +75,7 @@ class FlightSpec:
     title_quote: str
     gnss: GnssSpec | None = None
     utc_clock: UtcClockSpec | None = None
+    real_weather: RealWeatherSpec | None = None
     team_prediction_quote: str | None = None
     official_apogee_quote: str | None = None
     skip_cells: dict[int, str] = field(default_factory=dict)
@@ -325,6 +340,12 @@ FLEET: tuple[FlightSpec, ...] = (
         utc_clock=UtcClockSpec(
             path=f"{DATA}/prometheus/2022-06-24-serial-5115-flight-0001-TeleMetrum.csv",
             time_column="time",
+        ),
+        real_weather=RealWeatherSpec(
+            launch_date=date(2022, 6, 24),
+            control_date=date(2023, 6, 24),
+            reason="The notebook sets 2023-06-24 and loads a 2023 reanalysis file; its own "
+            "flight card and the log's GPS clock both give 2022-06-24.",
         ),
         team_prediction_quote="**Last Simulated Apogee:** 4190.05 m",
         official_apogee_quote="**Official Recorded Apogee:** 3898.37 m",

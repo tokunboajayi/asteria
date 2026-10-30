@@ -59,6 +59,7 @@ from asteria.models import (
     Quote,
     RealSeries,
     SourceFile,
+    WeatherGhost,
 )
 from asteria.provenance import source_file
 from asteria.rockets import (
@@ -72,6 +73,7 @@ from asteria.rockets import (
     notebook,
     real,
     telemetry,
+    weather,
 )
 
 OFFICIAL_TOLERANCE = 0.10
@@ -114,6 +116,7 @@ class Pass1:
     launch_site: LaunchSite
     weather_time_utc: str | None
     launch: LaunchTime | None
+    weather_ghost: WeatherGhost | None
     files: list[SourceFile]
     team_prediction: Quote | None
     official: Quote | None
@@ -296,6 +299,9 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
         ),
         weather_time_utc=_weather_time(flight),
         launch=_launch(clock, real_lift, _weather_time(flight)),
+        weather_ghost=_weather_ghost(
+            spec, kwargs, ghost_apogee, real_peak, g.t, _launch(clock, real_lift, None)
+        ),
         files=_source_files(checkout, spec),
         team_prediction=team,
         official=official,
@@ -378,6 +384,60 @@ def _launch(
         uncertainty_s=round(clock.half_width_s, 3),
         source=f"{clock.source}; {clock.rows} rows",
         weather_offset_days=offset,
+    )
+
+
+def _weather_ghost(
+    spec: catalog.FlightSpec,
+    kwargs: dict[str, Any],
+    notebook_apogee: float,
+    real_apogee: float,
+    t_grid: Any,
+    launch: LaunchTime | None,
+) -> WeatherGhost | None:
+    """Re-fly on the launch day's ERA5 when the spec asks and both files are cached."""
+    from asteria.config import paths
+    from asteria.sources import era5
+
+    rw = spec.real_weather
+    if rw is None:
+        return None
+    if launch is None:
+        raise IntegrityError(f"{spec.id}: real weather needs a real liftoff time")
+    lift = datetime.fromisoformat(launch.utc.replace("Z", "+00:00"))
+    if lift.date() != rw.launch_date:
+        raise IntegrityError(f"{spec.id}: liftoff {lift.date()} is not {rw.launch_date}")
+    cache = paths().era5_cache
+    real_file, control_file = (
+        era5.path_for(cache, rw.launch_date),
+        era5.path_for(cache, rw.control_date),
+    )
+    if not (real_file.is_file() and control_file.is_file()):
+        return None
+    nb_when = kwargs["environment"].datetime_date.astimezone(UTC)
+    control = weather.WeatherFile(control_file, nb_when.replace(minute=0, second=0, microsecond=0))
+    control_apogee = weather.check_control(kwargs, control, notebook_apogee)
+    real_hour = lift.replace(minute=0, second=0, microsecond=0)
+    w = weather.WeatherFile(real_file, real_hour)
+    flight = weather.reflown(kwargs, w, to_apogee=False)
+    t_end = float(flight.t_final)
+    grid = [float(x) for x in t_grid]
+    inside = np.asarray([x for x in grid if x <= t_end], dtype=np.float64)
+    alt: list[float | None] = [round(float(v), 2) for v in flight.altitude.get_value(inside)]
+    alt += [None] * (len(grid) - len(alt))
+    apogee = ghost.apogee_agl(flight)
+    return WeatherGhost(
+        reason=rw.reason,
+        weather_time_utc=real_hour.isoformat().replace("+00:00", "Z"),
+        source=weather.SOURCE,
+        files=[f"{f.path.name} sha256:{f.sha256}" for f in (w, control)],
+        control_apogee_m=round(control_apogee, 3),
+        notebook_apogee_m=round(notebook_apogee, 3),
+        apogee_m=round(apogee, 3),
+        real_apogee_m=round(real_apogee, 3),
+        gap_change_m=round((real_apogee - apogee) - (real_apogee - notebook_apogee), 3),
+        t=grid,
+        altitude=alt,
     )
 
 
@@ -483,6 +543,7 @@ def _flight_artifacts(
         ),
         weather_time_utc=a.weather_time_utc,
         launch=a.launch,
+        weather_ghost=a.weather_ghost,
     )
     return row, summary, detail, debrief.build(spec, summary, a.diagnostics, a.peak_dvz)
 

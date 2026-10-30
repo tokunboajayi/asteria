@@ -35,6 +35,34 @@ def _build_orbits() -> None:
     print(f"orbit artifacts written: {out}")
 
 
+def _fetch_data() -> None:
+    """Optional third-party data the builds use when present (free accounts, see README)."""
+    from datetime import timedelta
+
+    from asteria.config import setting
+    from asteria.orbits import catalog as orbit_catalog
+    from asteria.rockets import catalog as rocket_catalog
+    from asteria.sources import era5, gracefo
+
+    p = paths()
+    if setting("CDSAPI_KEY"):
+        for spec in rocket_catalog.FLEET:
+            if spec.real_weather is not None:
+                for day in (spec.real_weather.launch_date, spec.real_weather.control_date):
+                    print(f"ERA5 {day}: {era5.fetch(p.era5_cache, day).name}")
+    else:
+        print("ERA5: skipped (CDSAPI_KEY not set)")
+    if setting("ESA_EO_USER"):
+        onset = orbit_catalog.STORM_ONSET
+        first = (onset - timedelta(days=orbit_catalog.HISTORY_LOOKBACK_DAYS)).date()
+        last = (onset + timedelta(days=orbit_catalog.FOLLOW_DAYS + 1)).date()
+        days = [first + timedelta(days=k) for k in range((last - first).days + 1)]
+        got = gracefo.fetch(p.gracefo_cache, days)
+        print(f"GRACE-FO density: {len(got)} daily files")
+    else:
+        print("GRACE-FO: skipped (ESA_EO_USER not set)")
+
+
 def _verify_dir(label: str, root: Path) -> int:
     """Re-hash one artifacts directory against its manifest; 1 if it fails, else 0."""
     try:
@@ -88,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--only", nargs="*", help="flight ids (default: the whole fleet)")
     sub.add_parser("build-orbits", help="build Storm Ghost (needs a Space-Track login)")
     sub.add_parser("verify", help="re-check source commit and artifact hashes")
+    sub.add_parser("fetch-data", help="download ERA5 and GRACE-FO data (free accounts)")
     s = sub.add_parser("serve", help="run the API")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
@@ -100,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
         _build(args)
     elif args.command == "build-orbits":
         _build_orbits()
+    elif args.command == "fetch-data":
+        _fetch_data()
     elif args.command == "verify":
         return _verify()
     elif args.command == "serve":

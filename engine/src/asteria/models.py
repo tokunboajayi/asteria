@@ -286,6 +286,24 @@ class LaunchTime(Model):
     )
 
 
+class WeatherGhost(Model):
+    """The ghost re-flown with only the weather replaced by the launch day's ERA5."""
+
+    reason: str
+    weather_time_utc: str = Field(description="ERA5 hour used: the real liftoff's hour.")
+    source: str
+    files: list[str] = Field(description="ERA5 files with SHA-256: launch day, then control.")
+    control_apogee_m: float = Field(
+        description="Re-flown on a fresh download of the notebook's own date (must match)."
+    )
+    notebook_apogee_m: float
+    apogee_m: float = Field(description="Re-flown on the launch day's weather.")
+    real_apogee_m: float
+    gap_change_m: float = Field(description="(real − weather ghost) − (real − notebook ghost).")
+    t: list[float]
+    altitude: list[float | None] = Field(description="m AGL on the ghost grid; null after landing.")
+
+
 class FlightDetail(Model):
     summary: FlightSummary
     provenance: Provenance
@@ -302,6 +320,10 @@ class FlightDetail(Model):
     )
     launch: LaunchTime | None = Field(
         description="Real liftoff time, only where a log records UTC; null otherwise."
+    )
+    weather_ghost: WeatherGhost | None = Field(
+        description="Null unless the notebook's weather date differs from the real launch "
+        "date and the launch day's ERA5 is cached."
     )
     weather_time_utc: str | None = Field(
         description="UTC hour of the notebook's weather data (Environment date); the ghost's "
@@ -612,6 +634,28 @@ class ObjectDecay(Model):
     peak: DecayBin | None = Field(description="Interval with the highest measured ratio.")
 
 
+class AccelCheck(Model):
+    start: str
+    end: str
+    accel_ratio: float | None = Field(description="Accelerometer density ÷ quiet, same intervals.")
+    decay_ratio: float | None
+    decay_err: float | None
+    model_ratio: float | None
+
+
+class AccelDensity(Model):
+    """GRACE-FO 1 accelerometer density: the independent check."""
+
+    norad_id: int
+    source: str
+    files: list[str] = Field(description="Input files with SHA-256.")
+    times: list[str] = Field(description="Hourly, same as the model series.")
+    measured_kg_m3: list[float | None] = Field(description="Orbit-mean, valid samples only.")
+    model_kg_m3: list[float]
+    median_model_over_measured: float | None
+    checks: list[AccelCheck]
+
+
 class DensityReport(Model):
     model: str
     method: str
@@ -624,3 +668,6 @@ class DensityReport(Model):
     decay_method: str
     decay_caveats: list[str]
     decay: list[ObjectDecay]
+    accelerometer: AccelDensity | None = Field(
+        description="Null when the GRACE-FO files are not in the local cache."
+    )

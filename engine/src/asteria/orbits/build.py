@@ -22,10 +22,13 @@ from asteria.artifacts import IntegrityError, publish
 from asteria.config import Paths
 from asteria.core import gapmap
 from asteria.models import (
+    AccelDensity,
     DensityReport,
     Ephemerides,
     GapSeries,
     Model,
+    ObjectDecay,
+    ObjectDensity,
     OmniSource,
     OrbitFleet,
     OrbitObjectSummary,
@@ -34,6 +37,7 @@ from asteria.models import (
     StormInfo,
 )
 from asteria.orbits import (
+    accel,
     catalog,
     decay,
     density,
@@ -48,6 +52,41 @@ OMNI_SOURCE = "NASA GSFC SPDF OMNI2 hourly (omni2_YYYY.dat)"
 
 def _iso(t: datetime) -> str:
     return t.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+GRACE_FO_1 = 43476
+
+
+def _accelerometer(
+    paths: Paths,
+    densities: Sequence[ObjectDensity],
+    decays: Sequence[ObjectDecay],
+    quiet: tuple[datetime, datetime] | None,
+    onset: datetime,
+    follow: timedelta,
+) -> AccelDensity | None:
+    """GRACE-FO 1 accelerometer check, only if every needed day file is in the cache."""
+    import hashlib
+
+    from asteria.sources import gracefo
+
+    model = next((d for d in densities if d.norad_id == GRACE_FO_1), None)
+    dec = next((d for d in decays if d.norad_id == GRACE_FO_1), None)
+    if model is None or dec is None or quiet is None:
+        return None
+    start = min(quiet[0], datetime.fromisoformat(model.times[0].replace("Z", "+00:00")))
+    days = []
+    for span in ((quiet[0], quiet[1]), (start, onset + follow)):
+        d = span[0].date()
+        while d <= span[1].date():
+            days.append(d)
+            d += timedelta(days=1)
+    files = [paths.gracefo_cache / gracefo.name_for(d) for d in sorted(set(days))]
+    if not all(f.is_file() for f in files):
+        return None
+    series = accel.load(files)
+    hashes = [(f.name, hashlib.sha256(f.read_bytes()).hexdigest()) for f in files]
+    return accel.build(series, GRACE_FO_1, dec, model, hashes, _iso)
 
 
 def _parse(text: str) -> datetime:
@@ -272,5 +311,6 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
             decay_method=decay.METHOD,
             decay_caveats=decay.CAVEATS,
             decay=decays,
+            accelerometer=_accelerometer(paths, densities, decays, quiet, onset, follow),
         )
     return publish(paths.orbits_artifacts, models, manifest)

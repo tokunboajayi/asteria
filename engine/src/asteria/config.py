@@ -34,6 +34,14 @@ class Paths:
         return self.cache / f"rocketpy-{ROCKETPY_COMMIT[:12]}"
 
     @property
+    def era5_cache(self) -> Path:
+        return self.cache / "era5"
+
+    @property
+    def gracefo_cache(self) -> Path:
+        return self.cache / "gracefo"
+
+    @property
     def artifacts(self) -> Path:
         return self.home / "artifacts"
 
