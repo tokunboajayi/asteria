@@ -489,3 +489,64 @@ def test_density_ratio_is_density_over_counterfactual(client: httpx.Client) -> N
             assert ratio == pytest.approx(rho / q, rel=2e-3)
         assert o["peak_ratio"] == pytest.approx(max(o["ratio"]), abs=1e-3)
         assert o["peak_time"] in o["times"]
+
+
+def test_prometheus_liftoff_comes_from_its_log_clock(details: dict[str, dict[str, Any]]) -> None:
+    from datetime import datetime
+
+    launch = details["prometheus-2022"]["launch"]
+    assert launch is not None and launch["uncertainty_s"] <= 0.5
+    t = datetime.fromisoformat(launch["utc"].replace("Z", "+00:00"))
+    assert (t.year, t.month, t.day, t.hour) == (2022, 6, 24, 15)
+    for fid, d in details.items():
+        if fid != "prometheus-2022":
+            assert d["launch"] is None, f"{fid}: launch time without a log clock"
+
+
+def test_decay_density_quiet_rate_recomputed_from_raw_element_sets(client: httpx.Client) -> None:
+    _orbits_or_skip(client)
+    if SPACETRACK_FILE is None or not SPACETRACK_FILE.is_file():
+        pytest.skip("ASTERIA_SPACETRACK_FILE not set")
+    from datetime import datetime
+
+    import numpy as np
+    from sgp4.api import WGS72, Satrec
+
+    rep = client.get("/api/orbits/density").json()
+    records = json.loads(SPACETRACK_FILE.read_bytes())
+
+    def when(text: str) -> datetime:
+        t = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return t if t.tzinfo else t.replace(tzinfo=__import__("datetime").UTC)
+
+    measured = 0
+    for o in rep["decay"]:
+        if o["status"] != "measured":
+            assert o["peak"] is None and o["reason"]
+            continue
+        measured += 1
+        lo, hi = when(o["quiet_start"]), when(o["quiet_end"])
+        latest: dict[datetime, dict[str, Any]] = {}
+        for r in records:
+            if int(r["NORAD_CAT_ID"]) != o["norad_id"]:
+                continue
+            e = when(r["EPOCH"])
+            if not lo.replace(microsecond=0) <= e.replace(microsecond=0) <= hi:
+                continue
+            key = e.replace(microsecond=0)
+            issued = (when(r["CREATION_DATE"]), int(r["GP_ID"]))
+            if key not in latest or issued > (when(latest[key]["CREATION_DATE"]), int(latest[key]["GP_ID"])):
+                latest[key] = r
+        t, a = [], []
+        for r in sorted(latest.values(), key=lambda r: when(r["EPOCH"])):
+            sat = Satrec.twoline2rv(r["TLE_LINE1"], r["TLE_LINE2"], WGS72)
+            n = sat.no_kozai / 60.0
+            a.append((398600.8 / n**2) ** (1 / 3))  # WGS-72, as SGP4 elements are fitted
+            t.append((when(r["EPOCH"]) - lo).total_seconds() / 86400.0)
+        slope = float(np.polyfit(t, a, 1)[0])
+        assert -slope * 1000 == pytest.approx(o["quiet_decay_m_per_day"], abs=0.05), o["name"]
+        bins = [b for b in o["bins"] if b["status"] == "measured"]
+        assert o["peak"]["measured_ratio"] == max(b["measured_ratio"] for b in bins)
+        for b in bins:
+            assert b["measured_err"] > 0 and b["snr"] >= 3 and b["model_ratio"] > 0
+    assert measured > 0, "no satellite's density was measurable from decay"

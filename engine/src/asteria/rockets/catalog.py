@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from asteria.rockets.telemetry import ExtraChannel, GnssSpec, LogSpec
+from asteria.rockets.telemetry import ExtraChannel, GnssSpec, LogSpec, UtcClockSpec
 
 EXAMPLES = "docs/examples"
 DATA = "data/rockets"
@@ -60,6 +60,7 @@ class FlightSpec:
     importer_var: str | None
     title_quote: str
     gnss: GnssSpec | None = None
+    utc_clock: UtcClockSpec | None = None
     team_prediction_quote: str | None = None
     official_apogee_quote: str | None = None
     skip_cells: dict[int, str] = field(default_factory=dict)
@@ -320,6 +321,10 @@ FLEET: tuple[FlightSpec, ...] = (
             time_column="time",
             latitude_column="latitude",
             longitude_column="longitude",
+        ),
+        utc_clock=UtcClockSpec(
+            path=f"{DATA}/prometheus/2022-06-24-serial-5115-flight-0001-TeleMetrum.csv",
+            time_column="time",
         ),
         team_prediction_quote="**Last Simulated Apogee:** 4190.05 m",
         official_apogee_quote="**Official Recorded Apogee:** 3898.37 m",

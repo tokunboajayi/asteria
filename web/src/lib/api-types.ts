@@ -466,6 +466,40 @@ export interface components {
             sentences: components["schemas"]["Sentence"][];
             validation: components["schemas"]["Validation"];
         };
+        /** DecayBin */
+        DecayBin: {
+            /** End */
+            end: string;
+            /**
+             * Measured Err
+             * @description 1-sigma, from the two fits.
+             */
+            measured_err: number | null;
+            /**
+             * Measured Ratio
+             * @description Density ÷ quiet, from orbit decay.
+             */
+            measured_ratio: number | null;
+            /**
+             * Model Ratio
+             * @description NRLMSIS 2.1 over the same two intervals.
+             */
+            model_ratio: number | null;
+            /** N Sets */
+            n_sets: number;
+            /**
+             * Snr
+             * @description Decay slope ÷ its standard error in this day.
+             */
+            snr: number | null;
+            /** Start */
+            start: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "measured" | "below_noise" | "no_fit";
+        };
         /**
          * DeltaSeries
          * @description real − ghost on the ghost time grid; null outside the real log's span.
@@ -496,6 +530,12 @@ export interface components {
         DensityReport: {
             /** Caveats */
             caveats: string[];
+            /** Decay */
+            decay: components["schemas"]["ObjectDecay"][];
+            /** Decay Caveats */
+            decay_caveats: string[];
+            /** Decay Method */
+            decay_method: string;
             /** Method */
             method: string;
             /** Model */
@@ -783,6 +823,8 @@ export interface components {
             events: components["schemas"]["Event"][];
             fingerprint: components["schemas"]["Fingerprint"];
             ghost: components["schemas"]["GhostSeries"];
+            /** @description Real liftoff time, only where a log records UTC; null otherwise. */
+            launch: components["schemas"]["LaunchTime"] | null;
             provenance: components["schemas"]["Provenance"];
             real: components["schemas"]["RealSeries"];
             summary: components["schemas"]["FlightSummary"];
@@ -999,6 +1041,26 @@ export interface components {
             /** Longitude Deg */
             longitude_deg: number;
         };
+        /** LaunchTime */
+        LaunchTime: {
+            /** Source */
+            source: string;
+            /**
+             * Uncertainty S
+             * @description Half-width of that interval, s.
+             */
+            uncertainty_s: number;
+            /**
+             * Utc
+             * @description Real liftoff, UTC (midpoint of the interval the log allows).
+             */
+            utc: string;
+            /**
+             * Weather Offset Days
+             * @description Notebook weather time minus real liftoff, days (null if no weather date).
+             */
+            weather_offset_days: number | null;
+        };
         /** NearestFlight */
         NearestFlight: {
             /** Id */
@@ -1041,6 +1103,35 @@ export interface components {
                 number,
                 number
             ];
+        };
+        /** ObjectDecay */
+        ObjectDecay: {
+            /** Bins */
+            bins: components["schemas"]["DecayBin"][];
+            /** Name */
+            name: string;
+            /** Norad Id */
+            norad_id: number;
+            /** @description Day with the highest measured ratio. */
+            peak: components["schemas"]["DecayBin"] | null;
+            /** Quiet Decay M Per Day */
+            quiet_decay_m_per_day: number | null;
+            /** Quiet End */
+            quiet_end: string | null;
+            /** Quiet Snr */
+            quiet_snr: number | null;
+            /**
+             * Quiet Start
+             * @description Quiet fit interval actually used.
+             */
+            quiet_start: string | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "measured" | "not_measurable";
         };
         /** ObjectDensity */
         ObjectDensity: {

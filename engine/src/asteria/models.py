@@ -277,6 +277,15 @@ class FleetBand(Model):
     )
 
 
+class LaunchTime(Model):
+    utc: str = Field(description="Real liftoff, UTC (midpoint of the interval the log allows).")
+    uncertainty_s: float = Field(description="Half-width of that interval, s.")
+    source: str
+    weather_offset_days: float | None = Field(
+        description="Notebook weather time minus real liftoff, days (null if no weather date)."
+    )
+
+
 class FlightDetail(Model):
     summary: FlightSummary
     provenance: Provenance
@@ -290,6 +299,9 @@ class FlightDetail(Model):
     diagnostics: Diagnostics
     band: FleetBand | None = Field(
         description="Null when fewer than two other flights have a bracketed k_own."
+    )
+    launch: LaunchTime | None = Field(
+        description="Real liftoff time, only where a log records UTC; null otherwise."
     )
     weather_time_utc: str | None = Field(
         description="UTC hour of the notebook's weather data (Environment date); the ghost's "
@@ -575,6 +587,30 @@ class ObjectDensity(Model):
     peak_time: str
 
 
+class DecayBin(Model):
+    start: str
+    end: str
+    status: Literal["measured", "below_noise", "no_fit"]
+    n_sets: int
+    measured_ratio: float | None = Field(description="Density ÷ quiet, from orbit decay.")
+    measured_err: float | None = Field(description="1-sigma, from the two fits.")
+    model_ratio: float | None = Field(description="NRLMSIS 2.1 over the same two intervals.")
+    snr: float | None = Field(description="Decay slope ÷ its standard error in this day.")
+
+
+class ObjectDecay(Model):
+    norad_id: int
+    name: str
+    status: Literal["measured", "not_measurable"]
+    reason: str | None
+    quiet_start: str | None = Field(description="Quiet fit interval actually used.")
+    quiet_end: str | None
+    quiet_decay_m_per_day: float | None
+    quiet_snr: float | None
+    bins: list[DecayBin]
+    peak: DecayBin | None = Field(description="Day with the highest measured ratio.")
+
+
 class DensityReport(Model):
     model: str
     method: str
@@ -584,3 +620,6 @@ class DensityReport(Model):
     sample_step_s: float
     objects: list[ObjectDensity]
     caveats: list[str]
+    decay_method: str
+    decay_caveats: list[str]
+    decay: list[ObjectDecay]

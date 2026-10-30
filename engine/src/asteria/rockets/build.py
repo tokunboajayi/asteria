@@ -53,6 +53,7 @@ from asteria.models import (
     FlightSummary,
     GhostSeries,
     LaunchSite,
+    LaunchTime,
     Model,
     Provenance,
     Quote,
@@ -112,6 +113,7 @@ class Pass1:
     k_bracketed: bool
     launch_site: LaunchSite
     weather_time_utc: str | None
+    launch: LaunchTime | None
     files: list[SourceFile]
     team_prediction: Quote | None
     official: Quote | None
@@ -200,6 +202,7 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
     clean = telemetry.clean(raw)
     arrays = real.real_arrays(clean)
     gnss = telemetry.load_gnss(checkout, spec.gnss) if spec.gnss else None
+    clock = telemetry.load_utc_clock(checkout, spec.utc_clock) if spec.utc_clock else None
 
     ghost_lift = ghost.first_crossing(g.t, g.altitude, ghost.LIFTOFF_ALTITUDE_M)
     if ghost_lift is None:
@@ -292,6 +295,7 @@ def run_pass1(checkout_str: str, spec_id: str) -> Pass1:
             elevation_m=float(flight.env.elevation),
         ),
         weather_time_utc=_weather_time(flight),
+        launch=_launch(clock, real_lift, _weather_time(flight)),
         files=_source_files(checkout, spec),
         team_prediction=team,
         official=official,
@@ -356,6 +360,25 @@ def _coast(g: GhostSeries, apogee_time_s: float) -> tuple[float, float]:
     """Ghost peak vertical speed (end of powered climb) to ghost apogee."""
     k = int(np.argmax(g.vz))
     return (g.t[k], apogee_time_s)
+
+
+def _launch(
+    clock: telemetry.UtcClock | None, real_lift_s: float | None, weather: str | None
+) -> LaunchTime | None:
+    """Real liftoff from the log's own UTC clock; None without a clock or a found liftoff."""
+    if clock is None or real_lift_s is None:
+        return None
+    when = clock.at(real_lift_s)
+    offset = None
+    if weather is not None:
+        w = datetime.fromisoformat(weather.replace("Z", "+00:00"))
+        offset = round((w - when).total_seconds() / 86400.0, 4)
+    return LaunchTime(
+        utc=when.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        uncertainty_s=round(clock.half_width_s, 3),
+        source=f"{clock.source}; {clock.rows} rows",
+        weather_offset_days=offset,
+    )
 
 
 def _pair(k: band.KRange | None) -> tuple[float, float] | None:
@@ -459,6 +482,7 @@ def _flight_artifacts(
             )
         ),
         weather_time_utc=a.weather_time_utc,
+        launch=a.launch,
     )
     return row, summary, detail, debrief.build(spec, summary, a.diagnostics, a.peak_dvz)
 

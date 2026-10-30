@@ -33,7 +33,15 @@ from asteria.models import (
     SpaceWeatherSeries,
     StormInfo,
 )
-from asteria.orbits import catalog, density, ephemeris, ghost, spacetrack, spaceweather
+from asteria.orbits import (
+    catalog,
+    decay,
+    density,
+    ephemeris,
+    ghost,
+    spacetrack,
+    spaceweather,
+)
 
 OMNI_SOURCE = "NASA GSFC SPDF OMNI2 hourly (omni2_YYYY.dat)"
 
@@ -126,6 +134,7 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
     summaries = []
     ephemerides = []
     densities = []
+    decays = []
     indices = density.Indices(hours)
     quiet_ap = indices.quiet_ap(*quiet) if quiet else None
     for obj in catalog.OBJECTS:
@@ -146,7 +155,7 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
                     obj.norad_id, obj.name, sets, base, onset, onset + follow, arc_start, _iso
                 )
             )
-            if quiet_ap is not None:
+            if quiet is not None and quiet_ap is not None:
                 densities.append(
                     density.object_density(
                         obj.norad_id,
@@ -156,6 +165,18 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
                         quiet_ap,
                         max(onset - timedelta(days=1), base.epoch),
                         onset + follow,
+                        _iso,
+                    )
+                )
+                decays.append(
+                    decay.object_decay(
+                        obj.norad_id,
+                        obj.name,
+                        sets,
+                        catalog.MANEUVER_RISE_M,
+                        quiet,
+                        (onset - timedelta(days=1), onset + follow),
+                        indices,
                         _iso,
                     )
                 )
@@ -248,5 +269,8 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
             sample_step_s=density.SAMPLE_STEP_S,
             objects=densities,
             caveats=density.CAVEATS,
+            decay_method=decay.METHOD,
+            decay_caveats=decay.CAVEATS,
+            decay=decays,
         )
     return publish(paths.orbits_artifacts, models, manifest)

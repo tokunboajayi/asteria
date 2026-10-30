@@ -308,6 +308,92 @@
         "title": "Debrief",
         "type": "object"
       },
+      "DecayBin": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "measured_err": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1-sigma, from the two fits.",
+            "title": "Measured Err"
+          },
+          "measured_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Density \u00f7 quiet, from orbit decay.",
+            "title": "Measured Ratio"
+          },
+          "model_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "NRLMSIS 2.1 over the same two intervals.",
+            "title": "Model Ratio"
+          },
+          "n_sets": {
+            "title": "N Sets",
+            "type": "integer"
+          },
+          "snr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Decay slope \u00f7 its standard error in this day.",
+            "title": "Snr"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "measured",
+              "below_noise",
+              "no_fit"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "status",
+          "n_sets",
+          "measured_ratio",
+          "measured_err",
+          "model_ratio",
+          "snr"
+        ],
+        "title": "DecayBin",
+        "type": "object"
+      },
       "DeltaSeries": {
         "additionalProperties": false,
         "description": "real \u2212 ghost on the ghost time grid; null outside the real log's span.\n\nThe real log is placed on the ghost clock by adding `real_time_shift_s`\n(liftoff alignment). The raw log in `RealSeries` keeps its own time base.",
@@ -403,6 +489,24 @@
             "title": "Caveats",
             "type": "array"
           },
+          "decay": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectDecay"
+            },
+            "title": "Decay",
+            "type": "array"
+          },
+          "decay_caveats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Decay Caveats",
+            "type": "array"
+          },
+          "decay_method": {
+            "title": "Decay Method",
+            "type": "string"
+          },
           "method": {
             "title": "Method",
             "type": "string"
@@ -434,7 +538,10 @@
           "quiet_ap",
           "sample_step_s",
           "objects",
-          "caveats"
+          "caveats",
+          "decay_method",
+          "decay_caveats",
+          "decay"
         ],
         "title": "DensityReport",
         "type": "object"
@@ -1134,6 +1241,17 @@
           "ghost": {
             "$ref": "#/components/schemas/GhostSeries"
           },
+          "launch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LaunchTime"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Real liftoff time, only where a log records UTC; null otherwise."
+          },
           "provenance": {
             "$ref": "#/components/schemas/Provenance"
           },
@@ -1171,6 +1289,7 @@
           "fingerprint",
           "diagnostics",
           "band",
+          "launch",
           "weather_time_utc"
         ],
         "title": "FlightDetail",
@@ -1783,6 +1902,45 @@
         "title": "LaunchSite",
         "type": "object"
       },
+      "LaunchTime": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "uncertainty_s": {
+            "description": "Half-width of that interval, s.",
+            "title": "Uncertainty S",
+            "type": "number"
+          },
+          "utc": {
+            "description": "Real liftoff, UTC (midpoint of the interval the log allows).",
+            "title": "Utc",
+            "type": "string"
+          },
+          "weather_offset_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Notebook weather time minus real liftoff, days (null if no weather date).",
+            "title": "Weather Offset Days"
+          }
+        },
+        "required": [
+          "utc",
+          "uncertainty_s",
+          "source",
+          "weather_offset_days"
+        ],
+        "title": "LaunchTime",
+        "type": "object"
+      },
       "NearestFlight": {
         "additionalProperties": false,
         "properties": {
@@ -1903,6 +2061,115 @@
           "alt_m"
         ],
         "title": "NextBestTarget",
+        "type": "object"
+      },
+      "ObjectDecay": {
+        "additionalProperties": false,
+        "properties": {
+          "bins": {
+            "items": {
+              "$ref": "#/components/schemas/DecayBin"
+            },
+            "title": "Bins",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "norad_id": {
+            "title": "Norad Id",
+            "type": "integer"
+          },
+          "peak": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecayBin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Day with the highest measured ratio."
+          },
+          "quiet_decay_m_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Decay M Per Day"
+          },
+          "quiet_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet End"
+          },
+          "quiet_snr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Snr"
+          },
+          "quiet_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quiet fit interval actually used.",
+            "title": "Quiet Start"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "measured",
+              "not_measurable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "norad_id",
+          "name",
+          "status",
+          "reason",
+          "quiet_start",
+          "quiet_end",
+          "quiet_decay_m_per_day",
+          "quiet_snr",
+          "bins",
+          "peak"
+        ],
+        "title": "ObjectDecay",
         "type": "object"
       },
       "ObjectDensity": {

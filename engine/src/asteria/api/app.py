@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -34,6 +34,7 @@ from asteria.models import (
     OrbitsStatus,
     SpaceWeatherSeries,
 )
+from asteria.rockets.clock import ghost_clock
 
 DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 ORBITS_GATED = (
@@ -239,18 +240,19 @@ def export_rocket_oem(flight_id: str, request: Request) -> str:
     f = store.flights.get(flight_id)
     if f is None:
         raise HTTPException(status_code=404, detail="unknown flight")
-    if f.weather_time_utc is None:
+    clock = ghost_clock(f)
+    if clock is None:
         raise HTTPException(
-            status_code=404, detail="the notebook sets no date, so the ghost has no UTC clock"
+            status_code=404,
+            detail="no launch time and no notebook date: no UTC clock",
         )
-    t0 = datetime.fromisoformat(f.weather_time_utc.replace("Z", "+00:00"))
     site = f.summary.launch_site
     g = f.ghost
     return format_oem(
         object_name=f"{f.summary.name} ghost",
         object_id=f.summary.id,
         ref_frame="ITRF2000",
-        epochs=[(t0 + timedelta(seconds=t)).isoformat() for t in g.t],
+        epochs=[(clock.t0 + timedelta(seconds=t)).isoformat() for t in g.t],
         positions_km=[
             geodetic_to_ecef_km(lat, lon, (site.elevation_m + alt) / 1000.0)
             for lat, lon, alt in zip(g.latitude, g.longitude, g.altitude, strict=True)
@@ -258,8 +260,7 @@ def export_rocket_oem(flight_id: str, request: Request) -> str:
         velocities_km_s=None,
         comments=[
             "RocketPy ghost trajectory (the notebook's reconstruction), not the recorded flight.",
-            "Epoch 0 is the notebook's weather time (Environment date, UTC hour), not a "
-            "recorded launch time.",
+            clock.comment,
             "WGS-84 geodetic to Earth-fixed; height = site elevation + altitude AGL, i.e. above "
             "mean sea level, not the ellipsoid (geoid offset under 110 m).",
         ],

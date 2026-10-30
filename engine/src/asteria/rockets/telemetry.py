@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -183,3 +184,79 @@ def load_gnss(root: Path, spec: GnssSpec) -> Gnss:
     valid = (lat != 0) & (lon != 0) & (np.abs(lat) <= 90) & (np.abs(lon) <= 180)
     order = np.argsort(t[valid], kind="stable")
     return Gnss(t=t[valid][order], latitude=lat[valid][order], longitude=lon[valid][order])
+
+
+# --- Real UTC clock in a log ---------------------------------------------------
+@dataclass(frozen=True)
+class UtcClockSpec:
+    """A log whose rows carry a whole-second UTC clock (e.g. a GPS receiver's)."""
+
+    path: str
+    time_column: str
+    columns: tuple[str, str, str, str, str, str] = (
+        "year",
+        "month",
+        "day",
+        "hour",
+        "minute",
+        "second",
+    )
+    source: str = "GPS clock in the flight log (UTC as logged, whole seconds)"
+
+
+@dataclass(frozen=True)
+class UtcClock:
+    """UTC = offset + log time, with the offset known to within [offset_low, offset_high)."""
+
+    epoch: datetime  # log time 0, midpoint estimate
+    half_width_s: float
+    rows: int
+    source: str
+
+    def at(self, log_t: float) -> datetime:
+        return self.epoch + timedelta(seconds=log_t)
+
+
+def offset_bounds(log_t: FloatArray, utc_floor_s: FloatArray) -> tuple[float, float]:
+    """Interval for O (UTC = O + log time) from a whole-second clock that steps.
+
+    A receiver reports second S once its fix for S arrives, after an unknown delay
+    L in [0, 1) s, and repeats it until the next. At each step, first seen at log
+    time t: O = S - t + L. Every step must agree, so O lies in
+    [max(S - t), min(S - t) + 1). The first group is skipped (the log may start mid-second).
+    """
+    change = np.flatnonzero(np.diff(utc_floor_s) != 0) + 1
+    if change.size < 3:
+        raise ValueError("fewer than 3 clock steps in the log")
+    o = utc_floor_s[change] - log_t[change]
+    lo, hi = float(np.max(o)), float(np.min(o) + 1.0)
+    if not lo < hi:
+        raise ValueError(f"UTC clock steps disagree by more than 1 s ({lo - hi + 1:.3f} s)")
+    return lo, hi
+
+
+def load_utc_clock(root: Path, spec: UtcClockSpec) -> UtcClock:
+    cols, _ = read_columns(root / spec.path, [spec.time_column, *spec.columns], ",")
+    t = cols[0]
+    y, mo, d, h, mi, se = (c.astype(int) for c in cols[1:])
+    valid = (y >= 1980) & (mo >= 1) & (d >= 1)  # receivers log zeros before a fix
+    if int(valid.sum()) < 10:
+        raise ValueError(f"{spec.path}: fewer than 10 rows with a UTC clock")
+    ref = datetime(int(y[valid][0]), 1, 1, tzinfo=UTC)
+    secs = np.array(
+        [
+            (
+                datetime(int(a), int(b), int(c), int(e), int(f), int(g), tzinfo=UTC) - ref
+            ).total_seconds()
+            for a, b, c, e, f, g in zip(
+                y[valid], mo[valid], d[valid], h[valid], mi[valid], se[valid], strict=True
+            )
+        ]
+    )
+    lo, hi = offset_bounds(t[valid], secs)
+    return UtcClock(
+        epoch=ref + timedelta(seconds=(lo + hi) / 2),
+        half_width_s=(hi - lo) / 2,
+        rows=int(valid.sum()),
+        source=spec.source,
+    )

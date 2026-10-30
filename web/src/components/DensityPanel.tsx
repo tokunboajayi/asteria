@@ -6,6 +6,7 @@ import { fmtNum, fmtSigned } from "@/lib/format";
 import type { Loadable } from "@/lib/useApi";
 
 import analysis from "./Analysis.module.css";
+import { DecayChart } from "./DecayChart";
 import styles from "./DensityPanel.module.css";
 import { PanelStatus } from "./PanelStatus";
 import panel from "./Panels.module.css";
@@ -39,15 +40,21 @@ export function DensityPanel({ density, objects, selected }: Props) {
     const s = objects.find((o) => o.norad_id === id)?.storm;
     return s && s.in_track_km.length > 0 ? s.in_track_km[s.in_track_km.length - 1] : null;
   };
+  const decayPeak = (id: number) => {
+    const p = d.decay.find((o) => o.norad_id === id)?.peak;
+    return p && p.measured_ratio !== null
+      ? `${fmtNum(p.measured_ratio, 2)} ± ${fmtNum(p.measured_err ?? 0, 2)}×`
+      : "—";
+  };
   const yTicks = [1, ...[2, 3, 4, 5, 6, 8, 10].filter((v) => v < yMax)];
 
   return (
     <section className={panel.panel} aria-labelledby="density-title">
       <div className={panel.head}>
         <h2 id="density-title" className="label">
-          Modelled density · storm ÷ quiet
+          Thermosphere density · storm ÷ quiet
         </h2>
-        <span className={panel.tagNeutral}>Model</span>
+        <span className={panel.tagNeutral}>Model · measured</span>
       </div>
       <p className={panel.lead}>
         How much the storm&apos;s geomagnetic heating raised air density along each satellite&apos;s real orbit,
@@ -95,12 +102,18 @@ export function DensityPanel({ density, objects, selected }: Props) {
           <dd>{measured(mine.norad_id) === null ? "—" : `${fmtSigned(measured(mine.norad_id) ?? 0, 1)} km`}</dd>
         </dl>
       )}
+      <h3 className="label">Measured from orbit decay · vs model</h3>
+      {(() => {
+        const dec = d.decay.find((o) => o.norad_id === selected);
+        return dec ? <DecayChart d={dec} /> : null;
+      })()}
       <table className={styles.table} aria-label="Peak modelled density ratio and measured gap, per satellite">
         <thead>
           <tr>
             <th scope="col">Object</th>
             <th scope="col">Alt km</th>
             <th scope="col">Peak (model)</th>
+            <th scope="col">Peak day (decay)</th>
             <th scope="col">Last gap km (measured)</th>
           </tr>
         </thead>
@@ -114,6 +127,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
                   <th scope="row">{o.name}</th>
                   <td>{fmtNum(o.mean_altitude_km, 0)}</td>
                   <td>{fmtNum(o.peak_ratio, 2)}×</td>
+                  <td>{decayPeak(o.norad_id)}</td>
                   <td>{g === null ? "—" : fmtSigned(g, 1)}</td>
                 </tr>
               );
@@ -126,8 +140,9 @@ export function DensityPanel({ density, objects, selected }: Props) {
         <p>
           Model: {d.model}. Quiet-window mean daily Ap: {fmtNum(d.quiet_ap, 1)}.
         </p>
+        <p>Orbit decay: {d.decay_method}</p>
         <ul>
-          {d.caveats.map((c) => (
+          {[...d.caveats, ...d.decay_caveats].map((c) => (
             <li key={c}>{c}</li>
           ))}
         </ul>

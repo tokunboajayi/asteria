@@ -161,6 +161,38 @@ def orbit_average(
     return out
 
 
+def positions(
+    sets: Sequence[ghost.ElementSet], samples: Sequence[datetime]
+) -> tuple[list[float], list[float], list[float]]:
+    """Geodetic lat, lon, height (km) from the latest element set at each sample."""
+    lat, lon, alt = [], [], []
+    for t in samples:
+        r, _ = ghost.state(ephemeris.latest_at(sets, t), t)
+        a, b, c = ghost.geodetic(r, t)
+        lat.append(a)
+        lon.append(b)
+        alt.append(c)
+    return lat, lon, alt
+
+
+def mean_density(
+    sets: Sequence[ghost.ElementSet], indices: Indices, start: datetime, end: datetime
+) -> float:
+    """NRLMSIS 2.1 mass density averaged along the real orbit over [start, end], real indices."""
+    samples = ephemeris.times(start, end, SAMPLE_STEP_S)
+    lat, lon, alt = positions(sets, samples)
+    rho = _msis(
+        samples,
+        lat,
+        lon,
+        alt,
+        [indices.f107_previous_day(t) for t in samples],
+        [indices.f107_81day(t) for t in samples],
+        [indices.ap_vector(t) for t in samples],
+    )
+    return float(rho.mean())
+
+
 def object_density(
     norad_id: int,
     name: str,
@@ -172,13 +204,7 @@ def object_density(
     iso: Callable[[datetime], str],
 ) -> ObjectDensity:
     samples = ephemeris.times(start, end, SAMPLE_STEP_S)
-    lat, lon, alt = [], [], []
-    for t in samples:
-        r, _ = ghost.state(ephemeris.latest_at(sets, t), t)
-        a, b, c = ghost.geodetic(r, t)
-        lat.append(a)
-        lon.append(b)
-        alt.append(c)
+    lat, lon, alt = positions(sets, samples)
     f107 = [indices.f107_previous_day(t) for t in samples]
     f107a = [indices.f107_81day(t) for t in samples]
     real_ap = [indices.ap_vector(t) for t in samples]

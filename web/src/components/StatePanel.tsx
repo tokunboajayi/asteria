@@ -144,6 +144,18 @@ export function StatePanel({ detail, mode, onMode, cursor }: Props) {
           <li className={s.has_position ? styles.go : styles.neutral}>
             {s.has_position ? "GNSS track logged" : "Altitude only · no position"}
           </li>
+          {detail.launch && (
+            <li className={styles.go} data-testid="launch-utc">
+              Liftoff {detail.launch.utc.slice(0, 19).replace("T", " ")} UTC ± {fmtNum(detail.launch.uncertainty_s, 1)} s
+              (log clock)
+            </li>
+          )}
+          {detail.launch?.weather_offset_days != null && Math.abs(detail.launch.weather_offset_days) >= 1 && (
+            <li className={styles.caution} data-testid="weather-mismatch">
+              Notebook weather is {fmtNum(Math.abs(detail.launch.weather_offset_days), 0)} days{" "}
+              {detail.launch.weather_offset_days > 0 ? "after" : "before"} liftoff
+            </li>
+          )}
           {d.rows_after_cutoff > 0 && (
             <li className={styles.caution}>{d.rows_after_cutoff} rows past declared cutoff</li>
           )}

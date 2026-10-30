@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from pydantic import BaseModel, ConfigDict
 
 from asteria.api.store import OrbitStore, RocketStore
+from asteria.rockets.clock import ghost_clock
 
 
 class _Model(BaseModel):
@@ -118,10 +119,11 @@ class Catalog:
 
     def _rockets(self, r: RocketStore) -> None:
         for fid, f in r.flights.items():
-            if f.weather_time_utc is None:
+            clock = ghost_clock(f)
+            if clock is None:
                 continue
-            t0 = _when(f.weather_time_utc)
-            name = f"{f.summary.name} (clock: notebook weather hour)"
+            t0 = clock.t0
+            name = f"{f.summary.name} (clock: {clock.label})"
 
             self.points[f"rocket.{fid}.ghost_altitude_m"] = (
                 f"{name}: ghost altitude AGL",
