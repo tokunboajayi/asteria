@@ -12,7 +12,7 @@ Only samples with validity_flag == 0 (the provider's "valid") are used; fill val
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -20,14 +20,14 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from asteria.models import AccelCheck, AccelDensity, ObjectDecay, ObjectDensity
+from asteria.models import AccelCheck, AccelDensity, ObjectDecay
 
 FILL = 1e32
 MIN_COVERAGE = 0.8
 CADENCE_S = 10.0
 SOURCE = (
-    "GRACE-FO 1 accelerometer-derived thermosphere density, TU Delft TOLEOS v0003, "
-    "distributed by ESA (Swarm dissemination server)"
+    "GRACE-FO 1 accelerometer-derived thermosphere density, TU Delft TOLEOS v0003. "
+    "Data provided by the European Space Agency (ESA)"
 )
 
 F = NDArray[np.float64]
@@ -95,9 +95,9 @@ def build(
     s: Series,
     norad_id: int,
     decay: ObjectDecay,
-    model: ObjectDensity,
+    times: Sequence[str],
+    model_kg_m3: Sequence[float] | None,
     files: Sequence[tuple[str, str]],
-    iso: Callable[[datetime], str],
 ) -> AccelDensity:
     checks: list[AccelCheck] = []
     quiet = None
@@ -116,19 +116,23 @@ def build(
             )
         )
     measured: list[float | None] = []
-    for t in model.times:
+    for t in times:
         h = _utc(t)
         v = s.window(h - timedelta(minutes=30), h + timedelta(minutes=30), orbit_mean=True)
         measured.append(float(f"{float(np.mean(v)):.4e}") if v.size else None)
-    pairs = [(m, x) for m, x in zip(model.density_kg_m3, measured, strict=True) if x is not None]
+    pairs = (
+        [(m, x) for m, x in zip(model_kg_m3, measured, strict=True) if x is not None]
+        if model_kg_m3 is not None
+        else []
+    )
     bias = float(np.median([m / x for m, x in pairs])) if pairs else None
     return AccelDensity(
         norad_id=norad_id,
         source=SOURCE,
         files=[f"{name} sha256:{sha}" for name, sha in files],
-        times=model.times,
+        times=list(times),
         measured_kg_m3=measured,
-        model_kg_m3=model.density_kg_m3,
+        model_kg_m3=None if model_kg_m3 is None else list(model_kg_m3),
         median_model_over_measured=None if bias is None else round(bias, 3),
         checks=checks,
     )

@@ -81,20 +81,47 @@ build counts how often it actually did (currently 9 of 11 against 9.0
 expected). The band models drag error only, so real altitude outside it early
 in the coast means the difference was already there at burnout.
 
-### Orbits: real arcs, modelled density, exports
+### Orbits: measured storm density, real arcs, exports
 
+- **Density measured from orbit decay:** for each satellite, the decay of the
+  mean semi-major axis of real element sets across each storm interval,
+  divided by the same in a quiet window. Drag coefficient, area and mass
+  cancel, so this is a measurement, with an error bar, not a model.
+- **Independent check (GRACE-FO 1 accelerometer):** over the same intervals
+  the accelerometer measured 2.70× (main phase) and 1.45× (recovery); orbit
+  decay gave 2.58 ± 0.11× and 1.48 ± 0.04×. The acceptance suite fails if
+  the two ever disagree by more than 3 sigma.
 - **Ephemeris and arcs:** SGP4 states every 5 minutes, each from the latest
-  Space-Track element set at or before it (TEME), and one revolution of the
-  ghost's and the latest tracked orbit for the globe.
-- **Modelled density:** NRLMSIS 2.1 (pymsis) along each satellite's real
-  positions with NASA OMNI F10.7 and 3-hour ap, divided by the same model with
-  ap held at the quiet window's level. Labelled a model and shown beside the
-  measured in-track gap, never in place of it.
+  Space-Track element set at or before it (TEME), and one real revolution of
+  the ghost's and the latest tracked orbit for the globe.
+- **Optional model comparison:** NRLMSIS along the same orbits, off by default
+  (see Commercial use: NRL licenses MSIS2 for non-commercial use only).
 - **CCSDS OEM:** orbit ephemerides (TEME, with velocities) and each rocket
-  ghost's trajectory (Earth-fixed; time zero is the notebook's weather hour,
-  stated in the file, not a recorded launch time).
+  ghost's trajectory (Earth-fixed). Time zero is the real liftoff where a log
+  records UTC (Prometheus: GPS clock, ±0.44 s), else the notebook's weather
+  hour, stated in the file.
 - **NASA Open MCT:** a dictionary in Open MCT's tutorial format and historical
   telemetry for every key it lists; unknown keys return 404.
+
+### Launch-day weather
+
+Prometheus's notebook flies the ghost in weather for 2023-06-24; the flight was
+2022-06-24 (its own flight card and its GPS log agree). With the launch day's
+ERA5 cached, the build re-flies the ghost changing only the weather date and
+file. Gate: the same pipeline on a fresh download of the notebook's own date
+must reproduce the notebook apogee within 1 m, or the build stops.
+
+### Optional data
+
+```powershell
+cd engine
+uv run asteria fetch-data   # ERA5 (Copernicus) and GRACE-FO (ESA), free accounts
+uv run asteria build        # rockets, with launch-day weather when cached
+uv run asteria build-orbits # orbits, with the accelerometer check when cached
+```
+
+Keys go in `.env.local` / `.env` (see `.env.example`); raw downloads stay in
+`.asteria/cache` and are never published.
 
 ## Run it (Windows, PowerShell)
 
@@ -228,9 +255,30 @@ cd web; npx playwright install chromium; npm run test:acceptance
 - Barometric altimeters can misread near the speed of sound; transonic gap
   cells may hold sensor error as well as physics error.
 - Storm Ghost's tracked orbits are orbit fits to tracking data, not direct
-  measurements. Where Space-Track re-issued a fit for the same epoch, only
+  measurements. Decay-measured density assumes each satellite's drag area and
+  attitude were the same in the storm and quiet windows; element sets lag a
+  sudden density rise, so main-phase ratios may be slightly understated. Where Space-Track re-issued a fit for the same epoch, only
   the latest issue is used.
 - Next Best Flight names the envelope to fly; it does not design the vehicle.
+
+## Deploy
+
+```bash
+# 1. Build the artifacts once (needs the pinned RocketPy source; see Run it)
+cd engine && uv run asteria build && uv run asteria build-orbits && cd ..
+# 2. Run the API and console as containers
+NEXT_PUBLIC_API_URL=https://api.your-domain ASTERIA_WEB_ORIGINS=https://your-domain \
+  docker compose up --build -d
+```
+
+- The API image serves the prebuilt, hash-verified artifacts **read-only**
+  (`/data` is mounted read-only, the container filesystem is read-only, it
+  runs as a non-root user). It does not include the NRLMSIS extra.
+- Put both behind a TLS reverse proxy. `NEXT_PUBLIC_` values are compiled
+  into the browser bundle: only a URL-restricted, read-only Cesium token
+  belongs there.
+- CI builds both images on every push, starts the API image and checks that
+  no settings file or local cache ended up inside either image.
 
 ## Commercial use
 
@@ -245,7 +293,9 @@ and those, not the code licence, decide what a commercial deployment needs:
 | Space-Track.org (orbits) | Free account; user agreement | Raw data may not be redistributed. Serving Storm Ghost results to customers needs Space-Track's approval under its agreement; check before offering it |
 | NASA OMNI2 | US Government data, no restriction | Same; credit NASA GSFC SPDF |
 | RocketPy and team flight logs | MIT; logs published in RocketPy with each team's permission | Keep the credits in NOTICE.md; ask the teams before marketing results about their flights |
-| ERA5 weather (via RocketPy) | Copernicus licence, attribution | Same; commercial use permitted with attribution |
+| ERA5 (RocketPy files and launch-day re-fly) | CC-BY 4.0, attribution | Permitted with the Copernicus attribution (shown in the console) |
+| GRACE-FO accelerometer density (ESA, optional) | ESA terms: own research and applications; credit "Data provided by the European Space Agency (ESA)" | **Unclear for commercial use**: confirm with ESA before offering it; the build works without it |
+| NRLMSIS 2.x via pymsis (optional `model` extra) | NRL licence: academic, non-commercial only | **Not permitted**. Default builds and the Docker image do not install it; measured density is unaffected |
 
 None of the above is legal advice; read each provider's current terms before
 you charge for a deployment.

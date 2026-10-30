@@ -189,7 +189,8 @@ for (const size of ORBIT_SIZES) {
     await openConsole(page);
     await page.getByRole("tab", { name: /orbits/i }).click();
     await expect(page.getByTestId("orbit-globe")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId("density-plot")).toBeVisible();
+    // The measured table is always there; the model chart only when a model is configured.
+    await expect(page.getByRole("table", { name: /Main-phase density ratio/ })).toBeVisible();
     await page.waitForTimeout(1500);
 
     const globe = await page.getByTestId("orbit-globe").boundingBox();

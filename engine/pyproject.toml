@@ -1,6 +1,6 @@
 [project]
 name = "asteria-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Asteria engine: physics ghost vs. recorded reality, measured and explained."
 readme = "README.md"
 license = "MIT"
@@ -19,12 +19,16 @@ dependencies = [
     "pydantic>=2.6",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
-    "pymsis>=0.10",
     "cdsapi>=0.7.7",
     "cdflib>=1.3",
 ]
 
 
+
+[project.optional-dependencies]
+# NRLMSIS density model comparison. pymsis includes NRL's MSIS2 code, licensed for
+# academic, non-commercial use only. Commercial deployments: do not install this extra.
+model = ["pymsis>=0.10"]
 [project.urls]
 Repository = "https://github.com/tokunboajayi/asteria"
 

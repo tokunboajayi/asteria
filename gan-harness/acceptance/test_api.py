@@ -554,7 +554,8 @@ def test_decay_density_quiet_rate_recomputed_from_raw_element_sets(client: httpx
         bins = [b for b in o["bins"] if b["status"] == "measured"]
         assert o["peak"]["measured_ratio"] == max(b["measured_ratio"] for b in bins)
         for b in bins:
-            assert b["measured_err"] > 0 and b["snr"] >= 3 and b["model_ratio"] > 0
+            assert b["measured_err"] > 0 and b["snr"] >= 3
+            assert (b["model_ratio"] is None) == (rep["model"] is None)
     assert measured > 0, "no satellite's density was measurable from decay"
 
 
@@ -564,7 +565,8 @@ def test_accelerometer_confirms_the_decay_method_where_both_exist(client: httpx.
     a = rep.get("accelerometer")
     if a is None:
         pytest.skip("GRACE-FO accelerometer files not cached")
-    assert len(a["times"]) == len(a["measured_kg_m3"]) == len(a["model_kg_m3"])
+    assert len(a["times"]) == len(a["measured_kg_m3"])
+    assert a["model_kg_m3"] is None or len(a["model_kg_m3"]) == len(a["times"])
     compared = 0
     for c in a["checks"]:
         if c["accel_ratio"] is None or c["decay_ratio"] is None:

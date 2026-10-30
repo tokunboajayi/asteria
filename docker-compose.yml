@@ -1,0 +1,32 @@
+# Production-style local run: API + console.
+#   1. Build the artifacts once:  cd engine; uv run asteria build; uv run asteria build-orbits
+#   2. docker compose up --build
+# The API mounts .asteria read-only; nothing in the containers can change the artifacts.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: engine/Dockerfile
+    environment:
+      ASTERIA_WEB_ORIGINS: ${ASTERIA_WEB_ORIGINS:-http://localhost:3000}
+    volumes:
+      - ./.asteria:/data:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_CESIUM_ION_TOKEN: ${NEXT_PUBLIC_CESIUM_ION_TOKEN:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped

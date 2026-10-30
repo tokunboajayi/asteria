@@ -49,3 +49,29 @@ jobs:
       - run: npm run lint
       # No keys in CI: the globe falls back to Esri imagery without a Cesium ion token.
       - run: npm run build
+
+  images:
+    name: Production images (build only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose file is valid
+        run: docker compose config --quiet
+      - name: API image
+        run: docker build -f engine/Dockerfile -t asteria-api:ci .
+      - name: API image starts and answers /health (artifacts absent → reports not loaded)
+        run: |
+          docker run -d --name api -p 8000:8000 asteria-api:ci
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8000/health
+          docker logs api
+          docker rm -f api
+      - name: Console image
+        run: docker build -f web/Dockerfile -t asteria-web:ci .
+      - name: No secrets or caches in the images
+        run: |
+          for img in asteria-api:ci asteria-web:ci; do
+            if docker run --rm --entrypoint sh "$img" -c 'find / -xdev \( -name ".env" -o -name ".env.local" -o -path "*/.asteria/*" \) 2>/dev/null | grep -q .'; then
+              echo "::error::$img contains a settings file or local cache"; exit 1
+            fi
+          done

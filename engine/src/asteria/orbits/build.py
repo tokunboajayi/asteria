@@ -72,9 +72,14 @@ def _accelerometer(
 
     model = next((d for d in densities if d.norad_id == GRACE_FO_1), None)
     dec = next((d for d in decays if d.norad_id == GRACE_FO_1), None)
-    if model is None or dec is None or quiet is None:
+    if dec is None or quiet is None:
         return None
-    start = min(quiet[0], datetime.fromisoformat(model.times[0].replace("Z", "+00:00")))
+    hours = [
+        onset - timedelta(days=1) + timedelta(hours=k)
+        for k in range(int((follow + timedelta(days=1)).total_seconds() // 3600) + 1)
+    ]
+    times = model.times if model is not None else [_iso(h) for h in hours]
+    start = min(quiet[0], datetime.fromisoformat(times[0].replace("Z", "+00:00")))
     days = []
     for span in ((quiet[0], quiet[1]), (start, onset + follow)):
         d = span[0].date()
@@ -86,7 +91,9 @@ def _accelerometer(
         return None
     series = accel.load(files)
     hashes = [(f.name, hashlib.sha256(f.read_bytes()).hexdigest()) for f in files]
-    return accel.build(series, GRACE_FO_1, dec, model, hashes, _iso)
+    return accel.build(
+        series, GRACE_FO_1, dec, times, None if model is None else model.density_kg_m3, hashes
+    )
 
 
 def _parse(text: str) -> datetime:
@@ -175,6 +182,7 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
     densities = []
     decays = []
     indices = density.Indices(hours)
+    msis = density.configured()
     quiet_ap = indices.quiet_ap(*quiet) if quiet else None
     for obj in catalog.OBJECTS:
         sets = sorted(by_id[obj.norad_id], key=lambda s: s.epoch)
@@ -195,18 +203,20 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
                 )
             )
             if quiet is not None and quiet_ap is not None:
-                densities.append(
-                    density.object_density(
-                        obj.norad_id,
-                        obj.name,
-                        sets,
-                        indices,
-                        quiet_ap,
-                        max(onset - timedelta(days=1), base.epoch),
-                        onset + follow,
-                        _iso,
+                if msis is not None:
+                    densities.append(
+                        density.object_density(
+                            msis,
+                            obj.norad_id,
+                            obj.name,
+                            sets,
+                            indices,
+                            quiet_ap,
+                            max(onset - timedelta(days=1), base.epoch),
+                            onset + follow,
+                            _iso,
+                        )
                     )
-                )
                 decays.append(
                     decay.object_decay(
                         obj.norad_id,
@@ -217,6 +227,7 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
                         (onset, onset + follow),
                         indices,
                         _iso,
+                        msis,
                     )
                 )
         summaries.append(
@@ -302,8 +313,9 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
     }
     if quiet_ap is not None:
         models["density.json"] = DensityReport(
-            model=density.MODEL,
-            method=density.METHOD,
+            model=None if msis is None else msis.name,
+            model_licence=None if msis is None else msis.licence,
+            method=None if msis is None else density.METHOD,
             quiet_ap=round(quiet_ap, 2),
             sample_step_s=density.SAMPLE_STEP_S,
             objects=densities,

@@ -651,17 +651,16 @@ class AccelDensity(Model):
     files: list[str] = Field(description="Input files with SHA-256.")
     times: list[str] = Field(description="Hourly, same as the model series.")
     measured_kg_m3: list[float | None] = Field(description="Orbit-mean, valid samples only.")
-    model_kg_m3: list[float]
+    model_kg_m3: list[float] | None = Field(description="Null when no model is configured.")
     median_model_over_measured: float | None
     checks: list[AccelCheck]
 
 
 class DensityReport(Model):
-    model: str
-    method: str
-    quiet_ap: float = Field(
-        description="Mean daily Ap over the quiet window used as counterfactual."
-    )
+    model: str | None = Field(description="Null by default: measured density only.")
+    model_licence: str | None
+    method: str | None
+    quiet_ap: float = Field(description="Mean daily Ap over the quiet window.")
     sample_step_s: float
     objects: list[ObjectDensity]
     caveats: list[str]

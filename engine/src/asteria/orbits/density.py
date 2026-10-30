@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import statistics
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 import numpy as np
@@ -29,19 +30,64 @@ from asteria.artifacts import IntegrityError
 from asteria.models import ObjectDensity
 from asteria.orbits import ephemeris, ghost, spaceweather
 
-MODEL = "NRLMSIS 2.1 (pymsis), storm-time ap mode"
+
+@dataclass(frozen=True)
+class MsisModel:
+    key: str
+    version: float  # pymsis version argument
+    name: str
+    licence: str
+
+
+MODELS = {
+    "nrlmsis-2.1": MsisModel(
+        "nrlmsis-2.1",
+        2.1,
+        "NRLMSIS 2.1 (pymsis), storm-time ap mode",
+        "NRL MSIS2 licence: academic, non-commercial use only. Not for commercial deployments.",
+    ),
+    "nrlmsise-00": MsisModel(
+        "nrlmsise-00",
+        0,
+        "NRLMSISE-00 (pymsis), storm-time ap mode",
+        "U.S. Government work, believed public domain; note the pymsis package also ships "
+        "MSIS2 code under NRL's non-commercial licence.",
+    ),
+}
+SETTING = "ASTERIA_DENSITY_MODEL"
+
+
+def configured() -> MsisModel | None:
+    """The model chosen in settings, or None (the default: measured density only)."""
+    from asteria.config import setting
+
+    key = setting(SETTING).strip().lower()
+    if not key or key == "none":
+        return None
+    if key not in MODELS:
+        raise ValueError(f"{SETTING}={key!r}: choose one of {', '.join(MODELS)} or leave empty")
+    try:
+        import pymsis  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError(
+            f"{SETTING}={key} needs the optional model extra: cd engine; uv sync --extra model"
+        ) from exc
+    return MODELS[key]
+
+
 SAMPLE_STEP_S = 600.0
 F107A_DAYS = 81
 F107A_MIN_DAYS = 70  # of 81; fewer and the centred mean is not trusted
 METHOD = (
-    "Mass density from NRLMSIS 2.1 at each satellite's SGP4 position every 10 minutes, "
+    "Mass density from the chosen NRLMSIS version at each satellite's SGP4 position "
+    "every 10 minutes, "
     "orbit-averaged hourly, with NASA OMNI2 F10.7 (previous day and 81-day centred mean) "
     "and 3-hour ap. Counterfactual: same positions and F10.7, ap held at the quiet "
     "window's mean daily Ap."
 )
 CAVEATS = [
-    "Modelled, not measured: NRLMSIS is an empirical climatology and is known to "
-    "under-predict density in extreme storms.",
+    "Modelled, not measured: NRLMSIS is an empirical climatology; compare it with the "
+    "measured ratios (orbit decay, GRACE-FO accelerometer).",
     "Positions come from element sets, which already absorb the storm's real drag.",
 ]
 
@@ -120,6 +166,7 @@ class Indices:
 
 
 def _msis(
+    model: MsisModel,
     when: Sequence[datetime],
     lat: Sequence[float],
     lon: Sequence[float],
@@ -139,7 +186,7 @@ def _msis(
         f107s=np.asarray(f107),
         f107as=np.asarray(f107a),
         aps=np.asarray(aps),
-        version=2.1,
+        version=model.version,
         geomagnetic_activity=-1,
     )
     rho = np.asarray(out[..., msis.Variable.MASS_DENSITY], dtype=np.float64).reshape(-1)
@@ -176,12 +223,17 @@ def positions(
 
 
 def mean_density(
-    sets: Sequence[ghost.ElementSet], indices: Indices, start: datetime, end: datetime
+    model: MsisModel,
+    sets: Sequence[ghost.ElementSet],
+    indices: Indices,
+    start: datetime,
+    end: datetime,
 ) -> float:
     """NRLMSIS 2.1 mass density averaged along the real orbit over [start, end], real indices."""
     samples = ephemeris.times(start, end, SAMPLE_STEP_S)
     lat, lon, alt = positions(sets, samples)
     rho = _msis(
+        model,
         samples,
         lat,
         lon,
@@ -194,6 +246,7 @@ def mean_density(
 
 
 def object_density(
+    model: MsisModel,
     norad_id: int,
     name: str,
     sets: Sequence[ghost.ElementSet],
@@ -209,8 +262,8 @@ def object_density(
     f107a = [indices.f107_81day(t) for t in samples]
     real_ap = [indices.ap_vector(t) for t in samples]
     quiet = [[quiet_ap] * 7 for _ in samples]
-    rho = _msis(samples, lat, lon, alt, f107, f107a, real_ap)
-    rho_q = _msis(samples, lat, lon, alt, f107, f107a, quiet)
+    rho = _msis(model, samples, lat, lon, alt, f107, f107a, real_ap)
+    rho_q = _msis(model, samples, lat, lon, alt, f107, f107a, quiet)
 
     period_s = ephemeris.period_min(ephemeris.latest_at(sets, start)) * 60.0
     t0 = samples[0]

@@ -35,6 +35,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
   const t1 = Math.max(...d.objects.map((o) => Date.parse(o.times[o.times.length - 1] ?? "")));
   const x = scale({ min: t0, max: t1 }, M.left, W - M.right);
   const y = scale({ min: 1, max: yMax }, H - M.bottom, M.top);
+  const altitude = (id: number) => objects.find((o) => o.norad_id === id)?.storm?.base_mean_altitude_km ?? null;
   const mine = d.objects.find((o) => o.norad_id === selected) ?? null;
   const measured = (id: number) => {
     const s = objects.find((o) => o.norad_id === id)?.storm;
@@ -60,13 +61,16 @@ export function DensityPanel({ density, objects, selected }: Props) {
         <h2 id="density-title" className="label">
           Thermosphere density · storm ÷ quiet
         </h2>
-        <span className={panel.tagNeutral}>Model · measured</span>
+        <span className={panel.tagGo}>{d.model ? "Measured · model" : "Measured"}</span>
       </div>
       <p className={panel.lead}>
-        How much the storm raised air density along each satellite&apos;s real orbit. The curves are NRLMSIS 2.1
-        driven by NASA OMNI indices (storm ÷ the same orbit with quiet geomagnetic activity). The table measures
-        it from each satellite&apos;s own orbit decay and sets the model beside it over the same interval.
+        How much the storm raised air density along each satellite&apos;s real orbit, measured from the
+        satellite&apos;s own orbit decay.
+        {d.model
+          ? ` The curves are ${d.model} driven by NASA OMNI indices (storm ÷ the same orbit with quiet geomagnetic activity), set beside the measurement over the same intervals.`
+          : " No density model is configured, so only measurements are shown."}
       </p>
+      {d.model && d.objects.length > 0 && (
       <div className={styles.plot} data-testid="density-plot">
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Modelled density ratio over time, per satellite">
           {yTicks.map((v) => (
@@ -96,6 +100,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
           </text>
         </svg>
       </div>
+      )}
       {mine && (
         <dl className={panel.kv} data-testid="density-mine">
           <dt>{mine.name} · peak (model)</dt>
@@ -108,7 +113,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
           <dd>{measured(mine.norad_id) === null ? "—" : `${fmtSigned(measured(mine.norad_id) ?? 0, 1)} km`}</dd>
         </dl>
       )}
-      <h3 className="label">Measured from orbit decay · vs model</h3>
+      <h3 className="label">Measured from orbit decay{d.model ? " · vs model" : ""}</h3>
       {(() => {
         const dec = d.decay.find((o) => o.norad_id === selected);
         return dec ? <DecayChart d={dec} /> : null;
@@ -124,14 +129,15 @@ export function DensityPanel({ density, objects, selected }: Props) {
           </tr>
         </thead>
         <tbody>
-          {[...d.objects]
-            .sort((a, b) => a.mean_altitude_km - b.mean_altitude_km)
-            .map((o) => {
+          {[...d.decay]
+            .map((o) => ({ o, alt: altitude(o.norad_id) }))
+            .sort((a, b) => (a.alt ?? 0) - (b.alt ?? 0))
+            .map(({ o, alt }) => {
               const g = measured(o.norad_id);
               return (
                 <tr key={o.norad_id} className={o.norad_id === selected ? styles.selected : undefined}>
                   <th scope="row">{o.name}</th>
-                  <td>{fmtNum(o.mean_altitude_km, 0)}</td>
+                  <td>{alt === null ? "—" : fmtNum(alt, 0)}</td>
                   {mainPhase(o.norad_id)}
                   <td>{g === null ? "—" : fmtSigned(g, 1)}</td>
                 </tr>
@@ -141,10 +147,14 @@ export function DensityPanel({ density, objects, selected }: Props) {
       </table>
       <details className={panel.note}>
         <summary className="label">How this is computed</summary>
-        <p>{d.method}</p>
-        <p>
-          Model: {d.model}. Quiet-window mean daily Ap: {fmtNum(d.quiet_ap, 1)}.
-        </p>
+        {d.model && (
+          <>
+            <p>{d.method}</p>
+            <p>
+              Model: {d.model}. Licence: {d.model_licence}. Quiet-window mean daily Ap: {fmtNum(d.quiet_ap, 1)}.
+            </p>
+          </>
+        )}
         <p>Orbit decay: {d.decay_method}</p>
         <ul>
           {[...d.caveats, ...d.decay_caveats].map((c) => (

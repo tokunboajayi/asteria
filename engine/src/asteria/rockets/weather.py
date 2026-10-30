@@ -28,7 +28,10 @@ from asteria.rockets.notebook import seed_rng
 
 CONTROL_TOLERANCE_M = 1.0
 ERA5_DICTIONARY = "ECMWF"  # RocketPy's mapping for the current CDS netCDF layout
-SOURCE = "Copernicus Climate Change Service ERA5 hourly pressure levels (CC-BY 4.0)"
+SOURCE = (
+    "ERA5 hourly pressure levels (CC-BY 4.0). Contains modified Copernicus Climate Change "
+    "Service information"
+)
 
 
 @dataclass(frozen=True)

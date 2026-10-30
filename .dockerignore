@@ -1,0 +1,21 @@
+# Never send secrets, caches, raw data or build output into an image build.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+.asteria/
+.overhaul/
+OVERHAUL_LEDGER.md
+**/node_modules/
+**/.next/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.pytest_tmp/
+web/public/cesium/
+test-results/
+playwright-report/
+.git/

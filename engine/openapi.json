@@ -115,11 +115,19 @@
             "title": "Median Model Over Measured"
           },
           "model_kg_m3": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Model Kg M3",
-            "type": "array"
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when no model is configured.",
+            "title": "Model Kg M3"
           },
           "norad_id": {
             "title": "Norad Id",
@@ -683,12 +691,38 @@
             "type": "string"
           },
           "method": {
-            "title": "Method",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
           },
           "model": {
-            "title": "Model",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null by default: measured density only.",
+            "title": "Model"
+          },
+          "model_licence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Licence"
           },
           "objects": {
             "items": {
@@ -698,7 +732,7 @@
             "type": "array"
           },
           "quiet_ap": {
-            "description": "Mean daily Ap over the quiet window used as counterfactual.",
+            "description": "Mean daily Ap over the quiet window.",
             "title": "Quiet Ap",
             "type": "number"
           },
@@ -709,6 +743,7 @@
         },
         "required": [
           "model",
+          "model_licence",
           "method",
           "quiet_ap",
           "sample_step_s",
@@ -3597,7 +3632,7 @@
   "info": {
     "description": "Ghost vs reality: RocketPy reconstructions against published flight logs.",
     "title": "Asteria API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {

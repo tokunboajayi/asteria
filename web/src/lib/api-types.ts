@@ -371,8 +371,11 @@ export interface components {
             measured_kg_m3: (number | null)[];
             /** Median Model Over Measured */
             median_model_over_measured: number | null;
-            /** Model Kg M3 */
-            model_kg_m3: number[];
+            /**
+             * Model Kg M3
+             * @description Null when no model is configured.
+             */
+            model_kg_m3: number[] | null;
             /** Norad Id */
             norad_id: number;
             /** Source */
@@ -596,14 +599,19 @@ export interface components {
             /** Decay Method */
             decay_method: string;
             /** Method */
-            method: string;
-            /** Model */
-            model: string;
+            method: string | null;
+            /**
+             * Model
+             * @description Null by default: measured density only.
+             */
+            model: string | null;
+            /** Model Licence */
+            model_licence: string | null;
             /** Objects */
             objects: components["schemas"]["ObjectDensity"][];
             /**
              * Quiet Ap
-             * @description Mean daily Ap over the quiet window used as counterfactual.
+             * @description Mean daily Ap over the quiet window.
              */
             quiet_ap: number;
             /** Sample Step S */

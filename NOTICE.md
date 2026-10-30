@@ -33,6 +33,17 @@ Asteria's own code is under the MIT licence (see LICENSE). It uses:
 - **sgp4** Python package (MIT licence), Brandon Rhodes, implementing
   Vallado et al.'s SGP4.
 
+## Optional data and models
+
+- **ERA5** hourly pressure levels, Copernicus Climate Change Service (CC-BY 4.0):
+  contains modified Copernicus Climate Change Service information.
+  Downloaded with **cdsapi** (Apache-2.0).
+- **GRACE-FO 1 accelerometer-derived density**, TU Delft TOLEOS v0003. Data
+  provided by the European Space Agency (ESA). © ESA. Read with **cdflib** (MIT).
+- **pymsis** (MIT) with **NRLMSIS 2.x** (U.S. Naval Research Laboratory; academic,
+  non-commercial licence) and NRLMSISE-00 (U.S. Government work): optional
+  `model` extra only, never installed by default or in the Docker image.
+
 ## Console
 
 - **CesiumJS** (Apache-2.0). Imagery without a token: Esri World Imagery

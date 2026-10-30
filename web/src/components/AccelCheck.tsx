@@ -16,7 +16,7 @@ const LABEL = ["Main phase", "Recovery"];
 /** GRACE-FO 1 accelerometer: the independent check on the decay method and the model. */
 export function AccelCheck({ a }: { a: AccelDensity }) {
   const ms = a.times.map((t) => Date.parse(t));
-  const vals = [...a.model_kg_m3, ...a.measured_kg_m3.filter((v): v is number => v !== null)];
+  const vals = [...(a.model_kg_m3 ?? []), ...a.measured_kg_m3.filter((v): v is number => v !== null)];
   const x = scale({ min: ms[0], max: ms[ms.length - 1] }, M.left, W - M.right);
   const y = scale({ min: 0, max: Math.max(...vals) * 1.05 }, H - M.bottom, M.top);
   const ticks = [1, 2, 3, 4, 5, 6].map((v) => v * 1e-12).filter((v) => v <= Math.max(...vals) * 1.05);
@@ -39,7 +39,7 @@ export function AccelCheck({ a }: { a: AccelDensity }) {
             <th scope="col">Interval</th>
             <th scope="col">Accelerometer ×</th>
             <th scope="col">Orbit decay ×</th>
-            <th scope="col">NRLMSIS ×</th>
+            <th scope="col">Model ×</th>
           </tr>
         </thead>
         <tbody>
@@ -62,16 +62,17 @@ export function AccelCheck({ a }: { a: AccelDensity }) {
               {fmtNum(v * 1e12, 0)}
             </text>
           ))}
-          <path d={linePath(ms, a.model_kg_m3, x, y)} className={styles.model} />
+          {a.model_kg_m3 && <path d={linePath(ms, a.model_kg_m3, x, y)} className={styles.model} />}
           <path d={linePath(ms, a.measured_kg_m3, x, y)} className={styles.measuredLine} />
           <text x={(M.left + W - M.right) / 2} y={H - 4} textAnchor="middle" className={analysis.axisTitle}>
-            ×10⁻¹² kg/m³ · white: accelerometer · blue dashed: NRLMSIS 2.1, same orbit
+            ×10⁻¹² kg/m³ · white: accelerometer{a.model_kg_m3 ? " · blue dashed: model, same orbit" : ""}
           </text>
         </svg>
       </div>
       <p className={panel.note}>
-        Typical hour: the model is {fmtNum(a.median_model_over_measured ?? 0, 2)}× the measured density (median).
-        Ratios cancel that bias; the absolute curve shows where it comes from. {a.source}.
+        {a.median_model_over_measured !== null &&
+          `Typical hour: the model is ${fmtNum(a.median_model_over_measured, 2)}× the measured density (median); ratios cancel that bias. `}
+        {a.source}.
       </p>
     </section>
   );

@@ -219,6 +219,7 @@ def object_decay(
     storm: tuple[datetime, datetime],
     indices: density.Indices,
     iso: Callable[[datetime], str],
+    model: density.MsisModel | None,
 ) -> ObjectDecay:
     maneuvers = ghost.maneuver_epochs(sets, maneuver_rise_m)
     q = fit_window(sets, maneuvers, quiet[0], quiet[1], QUIET_MIN_SETS, QUIET_MIN_DAYS)
@@ -247,7 +248,7 @@ def object_decay(
             f"Quiet-window decay {-q.slope_km_day * 1000:.1f} m/day is only {q.snr:.1f} standard "
             f"errors (needs {QUIET_MIN_SNR:g}): the orbit decays too slowly to resolve."
         )
-    rho_q = density.mean_density(sets, indices, q.start, q.end)
+    rho_q = density.mean_density(model, sets, indices, q.start, q.end) if model else None
 
     bins: list[DecayBin] = []
     for d0, d1 in INTERVALS_DAYS:
@@ -269,7 +270,11 @@ def object_decay(
                 )
             )
             continue
-        model = density.mean_density(sets, indices, start, end) / rho_q
+        model_ratio = (
+            density.mean_density(model, sets, indices, start, end) / rho_q
+            if model is not None and rho_q is not None
+            else None
+        )
         r, e = ratio_err(iv, q)
         ok = iv.snr >= INTERVAL_MIN_SNR
         bins.append(
@@ -281,12 +286,12 @@ def object_decay(
                 n_sets=iv.a0.n + iv.a1.n,
                 measured_ratio=round(r, 3) if ok else None,
                 measured_err=round(e, 3) if ok else None,
-                model_ratio=round(model, 3),
+                model_ratio=None if model_ratio is None else round(model_ratio, 3),
                 snr=round(iv.snr, 2),
             )
         )
 
-    measured = [b for b in bins if b.measured_ratio is not None and b.model_ratio is not None]
+    measured = [b for b in bins if b.measured_ratio is not None]
     peak = max(measured, key=lambda b: b.measured_ratio or 0.0) if measured else None
     return ObjectDecay(
         norad_id=norad_id,
