@@ -175,7 +175,7 @@ def build(paths: Paths, env_files: Sequence[Path]) -> Path:
                         sets,
                         catalog.MANEUVER_RISE_M,
                         quiet,
-                        (onset - timedelta(days=1), onset + follow),
+                        (onset, onset + follow),
                         indices,
                         _iso,
                     )

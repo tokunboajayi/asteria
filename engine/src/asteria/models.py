@@ -591,11 +591,12 @@ class DecayBin(Model):
     start: str
     end: str
     status: Literal["measured", "below_noise", "no_fit"]
-    n_sets: int
+    note: str | None = Field(description="Why there is no fit (maneuver, too few sets).")
+    n_sets: int = Field(description="Element sets used for the two end estimates.")
     measured_ratio: float | None = Field(description="Density ÷ quiet, from orbit decay.")
     measured_err: float | None = Field(description="1-sigma, from the two fits.")
     model_ratio: float | None = Field(description="NRLMSIS 2.1 over the same two intervals.")
-    snr: float | None = Field(description="Decay slope ÷ its standard error in this day.")
+    snr: float | None = Field(description="Decay over the interval ÷ its standard error.")
 
 
 class ObjectDecay(Model):
@@ -608,7 +609,7 @@ class ObjectDecay(Model):
     quiet_decay_m_per_day: float | None
     quiet_snr: float | None
     bins: list[DecayBin]
-    peak: DecayBin | None = Field(description="Day with the highest measured ratio.")
+    peak: DecayBin | None = Field(description="Interval with the highest measured ratio.")
 
 
 class DensityReport(Model):

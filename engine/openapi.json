@@ -352,8 +352,21 @@
             "title": "Model Ratio"
           },
           "n_sets": {
+            "description": "Element sets used for the two end estimates.",
             "title": "N Sets",
             "type": "integer"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why there is no fit (maneuver, too few sets).",
+            "title": "Note"
           },
           "snr": {
             "anyOf": [
@@ -364,7 +377,7 @@
                 "type": "null"
               }
             ],
-            "description": "Decay slope \u00f7 its standard error in this day.",
+            "description": "Decay over the interval \u00f7 its standard error.",
             "title": "Snr"
           },
           "start": {
@@ -385,6 +398,7 @@
           "start",
           "end",
           "status",
+          "note",
           "n_sets",
           "measured_ratio",
           "measured_err",
@@ -2090,7 +2104,7 @@
                 "type": "null"
               }
             ],
-            "description": "Day with the highest measured ratio."
+            "description": "Interval with the highest measured ratio."
           },
           "quiet_decay_m_per_day": {
             "anyOf": [

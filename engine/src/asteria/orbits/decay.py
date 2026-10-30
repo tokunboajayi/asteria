@@ -7,10 +7,13 @@ average densities it flew through, and B cancels:
 
     rho_storm / rho_quiet = (da/dt / sqrt(a))_storm / (da/dt / sqrt(a))_quiet
 
-Each rate is a least-squares slope of the mean semi-major axis of real
-Space-Track element sets against time, within a stretch with no maneuver. The
-same ratio is computed from NRLMSIS 2.1 over exactly the same intervals, so
-measurement and model are compared like for like.
+The quiet rate is a least-squares slope over a maneuver-free stretch of the
+quiet window. A storm interval's rate is the drop in semi-major axis between its
+two ends, each end estimated from a local straight-line fit to every element
+set within half a day of it. Single-day slopes from 3-4 element sets are not
+used: Space-Track fits lag and scatter during a storm, and three points give no
+honest error. The same ratio is computed from NRLMSIS 2.1 over exactly the same
+intervals, so measurement and model are compared like for like.
 
 Assumes B is the same in both windows. Attitude changes (e.g. ISS solar arrays)
 break that; the result is labelled per satellite, never blended across them.
@@ -28,24 +31,28 @@ import numpy as np
 from asteria.models import DecayBin, ObjectDecay
 from asteria.orbits import density, ghost
 
-BIN_DAYS = 1.0
-MIN_SETS = 3
-MIN_SPAN_FRACTION = 0.5  # a fit must cover at least half its bin
+# Storm intervals, days after onset: main phase, then recovery.
+INTERVALS_DAYS = ((0.0, 2.0), (2.0, 5.0))
+ANCHOR_HALF_DAYS = 0.5
+ANCHOR_MIN_SETS = 3
 QUIET_MIN_DAYS = 2.0
 QUIET_MIN_SETS = 5
 QUIET_MIN_SNR = 5.0  # decay slope / its standard error
-BIN_MIN_SNR = 3.0
+INTERVAL_MIN_SNR = 3.0
 METHOD = (
-    "Measured: least-squares decay rate of the mean semi-major axis of real element sets "
-    "in each day (maneuver-free stretch, at least 3 sets covering half the day), divided "
-    "by sqrt(a), over the same quantity in the quiet window. Drag coefficient, area and "
-    "mass cancel for the same satellite. Model: NRLMSIS 2.1 density averaged along the "
-    "real orbit over exactly the same two intervals."
+    "Measured: drop in the mean semi-major axis of real element sets across each storm "
+    "interval (each end from a straight-line fit to all sets within half a day of it), "
+    "divided by sqrt(a) and the interval's length, over the decay slope of a "
+    "maneuver-free stretch of the quiet window. Drag coefficient, area and mass cancel for "
+    "the same satellite. Model: NRLMSIS 2.1 density averaged along the real orbit over "
+    "exactly the same intervals."
 )
 CAVEATS = [
     "Assumes the satellite's drag area and attitude were the same in both windows.",
-    "A day is 'below noise' when its decay is under 3 standard errors: high orbits decay "
-    "too slowly for daily element sets to resolve.",
+    "An interval is 'below noise' when its decay is under 3 standard errors: high orbits "
+    "decay too slowly for element sets to resolve.",
+    "Element sets are fits over days of tracking and lag a sudden density rise, so the "
+    "main-phase ratio can be understated and part of it appear in the recovery interval.",
 ]
 
 
@@ -124,7 +131,79 @@ def fit_window(
     return Fit(run[0].epoch, run[-1].epoch, len(run), slope, err, float(np.mean(a)))
 
 
-def ratio_err(num: Fit, den: Fit) -> tuple[float, float]:
+@dataclass(frozen=True)
+class Anchor:
+    a_km: float
+    se_km: float
+    n: int
+
+
+def anchor(sets: Sequence[ghost.ElementSet], at: datetime) -> Anchor | None:
+    """Semi-major axis at `at` from a straight line through all sets within half a day."""
+    half = timedelta(days=ANCHOR_HALF_DAYS)
+    near = [s for s in sets if at - half <= s.epoch <= at + half]
+    if len(near) < ANCHOR_MIN_SETS:
+        return None
+    x = np.array([(s.epoch - at).total_seconds() / 86400.0 for s in near])
+    y = np.array([s.semi_major_axis_km for s in near])
+    if float(np.ptp(x)) == 0:
+        return None
+    slope, _ = linear_fit(x.tolist(), y.tolist())
+    xm = x - x.mean()
+    resid = y - (y.mean() + slope * xm)
+    s2 = float(resid @ resid) / (x.size - 2)
+    a0 = float(y.mean() + slope * (0.0 - x.mean()))
+    se = math.sqrt(s2 * (1.0 / x.size + x.mean() ** 2 / float(xm @ xm)))
+    return Anchor(a0, se, len(near))
+
+
+@dataclass(frozen=True)
+class Interval:
+    start: datetime
+    end: datetime
+    a0: Anchor
+    a1: Anchor
+
+    @property
+    def days(self) -> float:
+        return (self.end - self.start).total_seconds() / 86400.0
+
+    @property
+    def rate_km_day(self) -> float:
+        """Mean decay rate (positive when the orbit shrinks)."""
+        return (self.a0.a_km - self.a1.a_km) / self.days
+
+    @property
+    def rate_err(self) -> float:
+        return math.hypot(self.a0.se_km, self.a1.se_km) / self.days
+
+    @property
+    def proxy(self) -> float:
+        return self.rate_km_day / math.sqrt((self.a0.a_km + self.a1.a_km) / 2)
+
+    @property
+    def proxy_err(self) -> float:
+        return self.rate_err / math.sqrt((self.a0.a_km + self.a1.a_km) / 2)
+
+    @property
+    def snr(self) -> float:
+        return self.rate_km_day / self.rate_err if self.rate_err > 0 else math.inf
+
+
+def interval(
+    sets: Sequence[ghost.ElementSet], maneuvers: Sequence[datetime], start: datetime, end: datetime
+) -> Interval | str:
+    """The interval's decay, or why it cannot be measured."""
+    half = timedelta(days=ANCHOR_HALF_DAYS)
+    if any(start - half <= m <= end + half for m in maneuvers):
+        return "maneuver"
+    a0, a1 = anchor(sets, start), anchor(sets, end)
+    if a0 is None or a1 is None:
+        return "too few element sets near an end"
+    return Interval(start, end, a0, a1)
+
+
+def ratio_err(num: Fit | Interval, den: Fit) -> tuple[float, float]:
     """Proxy ratio and its 1-sigma error (relative errors in quadrature)."""
     r = num.proxy / den.proxy
     rel = math.hypot(num.proxy_err / num.proxy, den.proxy_err / den.proxy)
@@ -171,16 +250,17 @@ def object_decay(
     rho_q = density.mean_density(sets, indices, q.start, q.end)
 
     bins: list[DecayBin] = []
-    t = storm[0]
-    while t + timedelta(days=BIN_DAYS) <= storm[1]:
-        end = t + timedelta(days=BIN_DAYS)
-        f = fit_window(sets, maneuvers, t, end, MIN_SETS, BIN_DAYS * MIN_SPAN_FRACTION)
-        if f is None:
+    for d0, d1 in INTERVALS_DAYS:
+        start = storm[0] + timedelta(days=d0)
+        end = storm[0] + timedelta(days=d1)
+        iv = interval(sets, maneuvers, start, end)
+        if isinstance(iv, str):
             bins.append(
                 DecayBin(
-                    start=iso(t),
+                    start=iso(start),
                     end=iso(end),
                     status="no_fit",
+                    note=iv,
                     n_sets=0,
                     measured_ratio=None,
                     measured_err=None,
@@ -188,23 +268,23 @@ def object_decay(
                     snr=None,
                 )
             )
-        else:
-            model = density.mean_density(sets, indices, f.start, f.end) / rho_q
-            r, e = ratio_err(f, q)
-            ok = f.snr >= BIN_MIN_SNR
-            bins.append(
-                DecayBin(
-                    start=iso(t),
-                    end=iso(end),
-                    status="measured" if ok else "below_noise",
-                    n_sets=f.n,
-                    measured_ratio=round(r, 3) if ok else None,
-                    measured_err=round(e, 3) if ok else None,
-                    model_ratio=round(model, 3),
-                    snr=round(f.snr, 2),
-                )
+            continue
+        model = density.mean_density(sets, indices, start, end) / rho_q
+        r, e = ratio_err(iv, q)
+        ok = iv.snr >= INTERVAL_MIN_SNR
+        bins.append(
+            DecayBin(
+                start=iso(start),
+                end=iso(end),
+                status="measured" if ok else "below_noise",
+                note=None,
+                n_sets=iv.a0.n + iv.a1.n,
+                measured_ratio=round(r, 3) if ok else None,
+                measured_err=round(e, 3) if ok else None,
+                model_ratio=round(model, 3),
+                snr=round(iv.snr, 2),
             )
-        t = end
+        )
 
     measured = [b for b in bins if b.measured_ratio is not None and b.model_ratio is not None]
     peak = max(measured, key=lambda b: b.measured_ratio or 0.0) if measured else None
@@ -212,7 +292,7 @@ def object_decay(
         norad_id=norad_id,
         name=name,
         status="measured" if measured else "not_measurable",
-        reason=None if measured else "No storm day resolved above noise.",
+        reason=None if measured else "No storm interval resolved above noise.",
         quiet_start=iso(q.start),
         quiet_end=iso(q.end),
         quiet_decay_m_per_day=round(-q.slope_km_day * 1000, 2),

@@ -68,3 +68,23 @@ def test_fit_window_uses_the_longest_maneuver_free_run() -> None:
     s = sets([(0, 6790), (0.2, 6789.98), (0.4, 6789.96), (0.5, 6790.5), (0.7, 6790.48)])
     f = decay.fit_window(s, [s[3].epoch], T0, T0 + timedelta(days=1), 2, 0.1)
     assert f is not None and f.n == 3 and f.slope_km_day == pytest.approx(-0.1)
+
+
+def test_anchor_estimates_the_line_at_its_time_with_a_prediction_error() -> None:
+    s = sets([(d / 8, 6790.0 - 0.1 * d / 8 + (0.002 if d % 2 else -0.002)) for d in range(17)])
+    at = T0 + timedelta(days=1)
+    an = decay.anchor(s, at)
+    assert an is not None and an.n == 9
+    assert an.a_km == pytest.approx(6789.9, abs=0.003) and 0 < an.se_km < 0.003
+
+
+def test_interval_ratio_matches_a_known_density_jump_and_rejects_maneuvers() -> None:
+    quiet = sets([(d / 4, 6790.0 - 0.060 * d / 4) for d in range(13)])
+    storm = sets([(30 + d / 8, 6789.0 - 0.180 * d / 8) for d in range(25)])
+    q = decay.fit_window(quiet, [], T0, T0 + timedelta(days=4), 5, 2.0)
+    iv = decay.interval(storm, [], T0 + timedelta(days=30.5), T0 + timedelta(days=32.5))
+    assert q is not None and isinstance(iv, decay.Interval)
+    r, _ = decay.ratio_err(iv, q)
+    assert r == pytest.approx(3.0, rel=2e-4)
+    blocked = decay.interval(storm, [T0 + timedelta(days=31)], iv.start, iv.end)
+    assert blocked == "maneuver"

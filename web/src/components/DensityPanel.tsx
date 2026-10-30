@@ -113,7 +113,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
             <th scope="col">Object</th>
             <th scope="col">Alt km</th>
             <th scope="col">Peak (model)</th>
-            <th scope="col">Peak day (decay)</th>
+            <th scope="col">Peak measured (decay)</th>
             <th scope="col">Last gap km (measured)</th>
           </tr>
         </thead>

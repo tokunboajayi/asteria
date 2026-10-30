@@ -485,11 +485,19 @@ export interface components {
              * @description NRLMSIS 2.1 over the same two intervals.
              */
             model_ratio: number | null;
-            /** N Sets */
+            /**
+             * N Sets
+             * @description Element sets used for the two end estimates.
+             */
             n_sets: number;
             /**
+             * Note
+             * @description Why there is no fit (maneuver, too few sets).
+             */
+            note: string | null;
+            /**
              * Snr
-             * @description Decay slope ÷ its standard error in this day.
+             * @description Decay over the interval ÷ its standard error.
              */
             snr: number | null;
             /** Start */
@@ -1112,7 +1120,7 @@ export interface components {
             name: string;
             /** Norad Id */
             norad_id: number;
-            /** @description Day with the highest measured ratio. */
+            /** @description Interval with the highest measured ratio. */
             peak: components["schemas"]["DecayBin"] | null;
             /** Quiet Decay M Per Day */
             quiet_decay_m_per_day: number | null;
