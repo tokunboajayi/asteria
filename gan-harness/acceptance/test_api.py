@@ -413,23 +413,29 @@ def _oem_rows(text: str) -> list[list[str]]:
     return [ln.split() for ln in body.splitlines() if ln and not ln.startswith("COMMENT")]
 
 
-def test_rocket_oem_starts_at_the_weather_hour_and_never_repeats(
+def test_rocket_oem_clock_is_real_liftoff_or_weather_hour_and_never_repeats(
     client: httpx.Client, details: dict[str, dict[str, Any]]
 ) -> None:
-    from datetime import UTC, datetime
+    from datetime import UTC, datetime, timedelta
 
     for fid, d in details.items():
         r = client.get(f"/api/export/oem/rocket/{fid}")
-        if d["weather_time_utc"] is None:
+        if d["launch"] is None and d["weather_time_utc"] is None:
             assert r.status_code == 404
             continue
         assert r.status_code == 200, r.text
-        assert "REF_FRAME = ITRF2000" in r.text and "not a recorded launch time" in r.text
+        assert "REF_FRAME = ITRF2000" in r.text
         rows = _oem_rows(r.text)
         assert len(rows) == len(d["ghost"]["t"])
-        t0 = datetime.fromisoformat(d["weather_time_utc"].replace("Z", "+00:00"))
+        if d["launch"] is not None:
+            assert "real liftoff" in r.text
+            lift = datetime.fromisoformat(d["launch"]["utc"].replace("Z", "+00:00"))
+            t0 = lift - timedelta(seconds=d["diagnostics"]["ghost_liftoff_s"])
+        else:
+            assert "not a recorded launch time" in r.text
+            t0 = datetime.fromisoformat(d["weather_time_utc"].replace("Z", "+00:00"))
         first = datetime.fromisoformat(rows[0][0]).replace(tzinfo=UTC)
-        assert first == t0
+        assert abs((first - t0).total_seconds()) < 0.001
         stamps = [row[0] for row in rows]
         assert stamps == sorted(stamps) and len(set(stamps)) == len(stamps)
         # Within a few km of the launch site's Earth-fixed position at liftoff.
