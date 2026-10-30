@@ -47,16 +47,14 @@ def reflown(flight_kwargs: Mapping[str, Any], weather: WeatherFile, *, to_apogee
 
     kwargs = dict(flight_kwargs)
     env = copy.deepcopy(kwargs["environment"])
-    env.set_date(
-        (
-            weather.when_utc.year,
-            weather.when_utc.month,
-            weather.when_utc.day,
-            weather.when_utc.hour,
-        ),
-        timezone="UTC",
-    )
-    env.set_atmospheric_model(type="Reanalysis", file=str(weather.path), dictionary=ERA5_DICTIONARY)
+    # set_date reloads the reanalysis file the Environment points at, so point it at the new
+    # file first: one load, on the new file, at the new date. Nothing else is touched.
+    env.atmospheric_model_file = str(weather.path)
+    env.atmospheric_model_dict = ERA5_DICTIONARY
+    when = weather.when_utc
+    env.set_date((when.year, when.month, when.day, when.hour), timezone="UTC")
+    if env.atmospheric_model_type != "Reanalysis":
+        raise IntegrityError(f"expected a Reanalysis atmosphere, got {env.atmospheric_model_type}")
     kwargs["environment"] = env
     if to_apogee:
         kwargs["terminate_on_apogee"] = True
