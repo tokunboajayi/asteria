@@ -133,3 +133,11 @@
   fill-opacity: 0.12;
   stroke: none;
 }
+
+/* Ghost re-flown on the launch day's real weather. */
+.weather {
+  fill: none;
+  stroke: var(--ghost-soft);
+  stroke-width: 1.4;
+  stroke-dasharray: 1 3;
+}

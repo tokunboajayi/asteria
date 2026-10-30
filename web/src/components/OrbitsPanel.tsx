@@ -16,6 +16,7 @@ import { fmtNum, fmtSigned } from "@/lib/format";
 import { useApi, type Loadable } from "@/lib/useApi";
 
 import { GapMapPanel } from "./GapMapPanel";
+import { AccelCheck } from "./AccelCheck";
 import controls from "./Controls.module.css";
 import { DensityPanel } from "./DensityPanel";
 import { ExportDialog } from "./ExportDialog";
@@ -149,6 +150,7 @@ function OrbitsData() {
       )}
 
       <DensityPanel density={density} objects={f.objects} selected={id} />
+      {density.state === "ready" && density.data.accelerometer && <AccelCheck a={density.data.accelerometer} />}
 
       {weather.state === "ready" && <WeatherChart weather={weather.data} onset={f.storm.onset} />}
       <GapMapPanel gap={gap} flightId={String(id ?? "")} noun="objects" />

@@ -162,6 +162,29 @@ export function StatePanel({ detail, mode, onMode, cursor }: Props) {
         </ul>
       </section>
 
+      {detail.weather_ghost && (
+        <section className={styles.block} data-testid="weather-ghost">
+          <h2 className="label">Launch-day weather</h2>
+          <div className={styles.row}>
+            <span>Ghost, notebook weather</span>
+            <span>{fmtM(detail.weather_ghost.notebook_apogee_m)}</span>
+          </div>
+          <div className={styles.row}>
+            <span>Ghost, {detail.weather_ghost.weather_time_utc.slice(0, 13).replace("T", " ")}h UTC ERA5</span>
+            <span>{fmtM(detail.weather_ghost.apogee_m)}</span>
+          </div>
+          <div className={styles.row}>
+            <span>Gap change (real − ghost)</span>
+            <span className={styles.gapText}>{fmtSigned(detail.weather_ghost.gap_change_m, 0)} m</span>
+          </div>
+          <p className={styles.footnote}>
+            Only the weather date and file changed. Control: the same pipeline on a fresh download of the
+            notebook&apos;s own date gave {fmtM(detail.weather_ghost.control_apogee_m)} (notebook{" "}
+            {fmtM(detail.weather_ghost.notebook_apogee_m)}). {detail.weather_ghost.source}.
+          </p>
+        </section>
+      )}
+
       {detail.band && (
         <section className={styles.block} data-testid="band-block">
           <h2 className="label">Fleet band</h2>

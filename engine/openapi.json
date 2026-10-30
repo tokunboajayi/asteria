@@ -1,6 +1,156 @@
 {
   "components": {
     "schemas": {
+      "AccelCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "accel_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Accelerometer density \u00f7 quiet, same intervals.",
+            "title": "Accel Ratio"
+          },
+          "decay_err": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decay Err"
+          },
+          "decay_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decay Ratio"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "model_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Ratio"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "accel_ratio",
+          "decay_ratio",
+          "decay_err",
+          "model_ratio"
+        ],
+        "title": "AccelCheck",
+        "type": "object"
+      },
+      "AccelDensity": {
+        "additionalProperties": false,
+        "description": "GRACE-FO 1 accelerometer density: the independent check.",
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/AccelCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "files": {
+            "description": "Input files with SHA-256.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "measured_kg_m3": {
+            "description": "Orbit-mean, valid samples only.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Measured Kg M3",
+            "type": "array"
+          },
+          "median_model_over_measured": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Model Over Measured"
+          },
+          "model_kg_m3": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Model Kg M3",
+            "type": "array"
+          },
+          "norad_id": {
+            "title": "Norad Id",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "times": {
+            "description": "Hourly, same as the model series.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Times",
+            "type": "array"
+          }
+        },
+        "required": [
+          "norad_id",
+          "source",
+          "files",
+          "times",
+          "measured_kg_m3",
+          "model_kg_m3",
+          "median_model_over_measured",
+          "checks"
+        ],
+        "title": "AccelDensity",
+        "type": "object"
+      },
       "ApogeeSummary": {
         "additionalProperties": false,
         "properties": {
@@ -496,6 +646,17 @@
       "DensityReport": {
         "additionalProperties": false,
         "properties": {
+          "accelerometer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccelDensity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the GRACE-FO files are not in the local cache."
+          },
           "caveats": {
             "items": {
               "type": "string"
@@ -555,7 +716,8 @@
           "caveats",
           "decay_method",
           "decay_caveats",
-          "decay"
+          "decay",
+          "accelerometer"
         ],
         "title": "DensityReport",
         "type": "object"
@@ -1278,6 +1440,17 @@
           "timing": {
             "$ref": "#/components/schemas/EventTiming"
           },
+          "weather_ghost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WeatherGhost"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null unless the notebook's weather date differs from the real launch date and the launch day's ERA5 is cached."
+          },
           "weather_time_utc": {
             "anyOf": [
               {
@@ -1304,6 +1477,7 @@
           "diagnostics",
           "band",
           "launch",
+          "weather_ghost",
           "weather_time_utc"
         ],
         "title": "FlightDetail",
@@ -3329,6 +3503,93 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WeatherGhost": {
+        "additionalProperties": false,
+        "description": "The ghost re-flown with only the weather replaced by the launch day's ERA5.",
+        "properties": {
+          "altitude": {
+            "description": "m AGL on the ghost grid; null after landing.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Altitude",
+            "type": "array"
+          },
+          "apogee_m": {
+            "description": "Re-flown on the launch day's weather.",
+            "title": "Apogee M",
+            "type": "number"
+          },
+          "control_apogee_m": {
+            "description": "Re-flown on a fresh download of the notebook's own date (must match).",
+            "title": "Control Apogee M",
+            "type": "number"
+          },
+          "files": {
+            "description": "ERA5 files with SHA-256: launch day, then control.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "gap_change_m": {
+            "description": "(real \u2212 weather ghost) \u2212 (real \u2212 notebook ghost).",
+            "title": "Gap Change M",
+            "type": "number"
+          },
+          "notebook_apogee_m": {
+            "title": "Notebook Apogee M",
+            "type": "number"
+          },
+          "real_apogee_m": {
+            "title": "Real Apogee M",
+            "type": "number"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "t": {
+            "items": {
+              "type": "number"
+            },
+            "title": "T",
+            "type": "array"
+          },
+          "weather_time_utc": {
+            "description": "ERA5 hour used: the real liftoff's hour.",
+            "title": "Weather Time Utc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "weather_time_utc",
+          "source",
+          "files",
+          "control_apogee_m",
+          "notebook_apogee_m",
+          "apogee_m",
+          "real_apogee_m",
+          "gap_change_m",
+          "t",
+          "altitude"
+        ],
+        "title": "WeatherGhost",
         "type": "object"
       }
     }

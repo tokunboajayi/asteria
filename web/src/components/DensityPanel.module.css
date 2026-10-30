@@ -53,3 +53,16 @@
   color: var(--gap);
 }
 
+
+.model {
+  fill: none;
+  stroke: var(--ghost);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 4;
+}
+
+.measuredLine {
+  fill: none;
+  stroke: var(--real);
+  stroke-width: 1.6;
+}

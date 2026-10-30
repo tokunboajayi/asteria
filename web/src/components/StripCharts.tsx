@@ -25,7 +25,7 @@ interface Props {
 interface Line {
   t: readonly number[];
   v: readonly (number | null)[];
-  kind: "ghost" | "real" | "corrected" | "gap" | "zero";
+  kind: "ghost" | "real" | "corrected" | "gap" | "zero" | "weather";
 }
 
 interface Band {
@@ -71,6 +71,7 @@ export function StripCharts({ detail, mode, cursor, span, onCursor }: Props) {
     { t: rt, v: realAlt, kind: "real" },
   ];
   if (corrected && c.correctedAlt) altLines.push({ t: c.t, v: c.correctedAlt, kind: "corrected" });
+  if (detail.weather_ghost) altLines.push({ t: detail.weather_ghost.t, v: detail.weather_ghost.altitude, kind: "weather" });
 
   const fb = detail.band;
   const band: Band | undefined = fb ? { t: fb.t, low: fb.altitude_low, high: fb.altitude_high } : undefined;

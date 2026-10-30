@@ -334,6 +334,55 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccelCheck */
+        AccelCheck: {
+            /**
+             * Accel Ratio
+             * @description Accelerometer density ÷ quiet, same intervals.
+             */
+            accel_ratio: number | null;
+            /** Decay Err */
+            decay_err: number | null;
+            /** Decay Ratio */
+            decay_ratio: number | null;
+            /** End */
+            end: string;
+            /** Model Ratio */
+            model_ratio: number | null;
+            /** Start */
+            start: string;
+        };
+        /**
+         * AccelDensity
+         * @description GRACE-FO 1 accelerometer density: the independent check.
+         */
+        AccelDensity: {
+            /** Checks */
+            checks: components["schemas"]["AccelCheck"][];
+            /**
+             * Files
+             * @description Input files with SHA-256.
+             */
+            files: string[];
+            /**
+             * Measured Kg M3
+             * @description Orbit-mean, valid samples only.
+             */
+            measured_kg_m3: (number | null)[];
+            /** Median Model Over Measured */
+            median_model_over_measured: number | null;
+            /** Model Kg M3 */
+            model_kg_m3: number[];
+            /** Norad Id */
+            norad_id: number;
+            /** Source */
+            source: string;
+            /**
+             * Times
+             * @description Hourly, same as the model series.
+             */
+            times: string[];
+        };
         /** ApogeeSummary */
         ApogeeSummary: {
             /**
@@ -536,6 +585,8 @@ export interface components {
         };
         /** DensityReport */
         DensityReport: {
+            /** @description Null when the GRACE-FO files are not in the local cache. */
+            accelerometer: components["schemas"]["AccelDensity"] | null;
             /** Caveats */
             caveats: string[];
             /** Decay */
@@ -837,6 +888,8 @@ export interface components {
             real: components["schemas"]["RealSeries"];
             summary: components["schemas"]["FlightSummary"];
             timing: components["schemas"]["EventTiming"];
+            /** @description Null unless the notebook's weather date differs from the real launch date and the launch day's ERA5 is cached. */
+            weather_ghost: components["schemas"]["WeatherGhost"] | null;
             /**
              * Weather Time Utc
              * @description UTC hour of the notebook's weather data (Environment date); the ghost's clock origin. Not a recorded launch time. Null if the notebook set no date.
@@ -1561,6 +1614,52 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WeatherGhost
+         * @description The ghost re-flown with only the weather replaced by the launch day's ERA5.
+         */
+        WeatherGhost: {
+            /**
+             * Altitude
+             * @description m AGL on the ghost grid; null after landing.
+             */
+            altitude: (number | null)[];
+            /**
+             * Apogee M
+             * @description Re-flown on the launch day's weather.
+             */
+            apogee_m: number;
+            /**
+             * Control Apogee M
+             * @description Re-flown on a fresh download of the notebook's own date (must match).
+             */
+            control_apogee_m: number;
+            /**
+             * Files
+             * @description ERA5 files with SHA-256: launch day, then control.
+             */
+            files: string[];
+            /**
+             * Gap Change M
+             * @description (real − weather ghost) − (real − notebook ghost).
+             */
+            gap_change_m: number;
+            /** Notebook Apogee M */
+            notebook_apogee_m: number;
+            /** Real Apogee M */
+            real_apogee_m: number;
+            /** Reason */
+            reason: string;
+            /** Source */
+            source: string;
+            /** T */
+            t: number[];
+            /**
+             * Weather Time Utc
+             * @description ERA5 hour used: the real liftoff's hour.
+             */
+            weather_time_utc: string;
         };
     };
     responses: never;

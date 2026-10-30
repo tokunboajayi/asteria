@@ -556,3 +556,34 @@ def test_decay_density_quiet_rate_recomputed_from_raw_element_sets(client: httpx
         for b in bins:
             assert b["measured_err"] > 0 and b["snr"] >= 3 and b["model_ratio"] > 0
     assert measured > 0, "no satellite's density was measurable from decay"
+
+
+def test_accelerometer_confirms_the_decay_method_where_both_exist(client: httpx.Client) -> None:
+    _orbits_or_skip(client)
+    rep = client.get("/api/orbits/density").json()
+    a = rep.get("accelerometer")
+    if a is None:
+        pytest.skip("GRACE-FO accelerometer files not cached")
+    assert len(a["times"]) == len(a["measured_kg_m3"]) == len(a["model_kg_m3"])
+    compared = 0
+    for c in a["checks"]:
+        if c["accel_ratio"] is None or c["decay_ratio"] is None:
+            continue
+        compared += 1
+        # The claim the console makes: the two measurements agree within 3 sigma (+5%).
+        tol = 3 * c["decay_err"] + 0.05 * c["accel_ratio"]
+        assert abs(c["decay_ratio"] - c["accel_ratio"]) <= tol, c
+    assert compared > 0
+
+
+def test_weather_ghost_changes_only_the_weather(details: dict[str, dict[str, Any]]) -> None:
+    for fid, d in details.items():
+        w = d["weather_ghost"]
+        if w is None:
+            continue
+        assert d["launch"] is not None, f"{fid}: real weather without a real launch time"
+        assert abs(w["control_apogee_m"] - w["notebook_apogee_m"]) <= 1.0
+        assert w["notebook_apogee_m"] == pytest.approx(d["summary"]["apogee"]["ghost_m"], abs=1e-3)
+        assert w["gap_change_m"] == pytest.approx(w["notebook_apogee_m"] - w["apogee_m"], abs=2e-3)
+        assert w["weather_time_utc"][:13] == d["launch"]["utc"][:13]
+        assert len(w["t"]) == len(w["altitude"]) == len(d["ghost"]["t"])

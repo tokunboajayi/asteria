@@ -33,6 +33,8 @@ export type ObjectDensity = components["schemas"]["ObjectDensity"];
 export type ObjectDecay = components["schemas"]["ObjectDecay"];
 export type DecayBin = components["schemas"]["DecayBin"];
 export type LaunchTime = components["schemas"]["LaunchTime"];
+export type AccelDensity = components["schemas"]["AccelDensity"];
+export type WeatherGhost = components["schemas"]["WeatherGhost"];
 export type OpenMctDictionary = components["schemas"]["OpenMctDictionary"];
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
