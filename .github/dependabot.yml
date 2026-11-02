@@ -8,6 +8,13 @@ updates:
     directory: /web
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore:
+      # TypeScript 7 (native compiler) is not yet supported by the lint tooling.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Node type definitions must match the Node runtime (22), not the newest Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     # Packages that must move in lockstep, or `npm ci` fails on peer ranges.
     groups:
       react:
