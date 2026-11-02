@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { API_URL } from "@/lib/api";
+import { API_URL, STATIC_API, apiUrl } from "@/lib/api";
 
 import controls from "./Controls.module.css";
 import styles from "./ExportDialog.module.css";
@@ -17,7 +17,7 @@ interface Props {
   onClose: () => void;
 }
 
-const PLUGIN = (base: string) => `// Open MCT plugin: Asteria dictionary + historical telemetry.
+const PLUGIN = (base: string, suffix: string) => `// Open MCT plugin: Asteria dictionary + historical telemetry.
 // Install with openmct.install(AsteriaPlugin()) before openmct.start().
 function AsteriaPlugin() {
   return function install(openmct) {
@@ -40,7 +40,7 @@ function AsteriaPlugin() {
     openmct.telemetry.addProvider({
       supportsRequest: (o) => o.type === 'asteria.telemetry',
       request: (o, opts) =>
-        fetch(base + '/api/openmct/telemetry/' + encodeURIComponent(o.identifier.key))
+        fetch(base + '/api/openmct/telemetry/' + encodeURIComponent(o.identifier.key) + '${suffix}')
           .then((r) => r.json())
           .then((pts) => pts.filter((p) => p.timestamp >= opts.start && p.timestamp <= opts.end)),
     });
@@ -56,7 +56,8 @@ export function ExportDialog({ name, oemPath, oemNote, onClose }: Props) {
     if (d && !d.open) d.showModal();
   }, []);
 
-  const oemUrl = oemPath ? `${API_URL}${oemPath}` : null;
+  const oemUrl = oemPath ? apiUrl(oemPath, ".oem") : null;
+  const suffix = STATIC_API ? ".json" : "";
   const file = `${name.replace(/[^A-Za-z0-9]+/g, "_")}.oem`;
 
   return (
@@ -99,7 +100,9 @@ export function ExportDialog({ name, oemPath, oemNote, onClose }: Props) {
           </dd>
           <dt>Telemetry</dt>
           <dd>
-            <code>{API_URL}/api/openmct/telemetry/&lt;key&gt;</code>
+            <code>
+              {API_URL}/api/openmct/telemetry/&lt;key&gt;{suffix}
+            </code>
           </dd>
         </dl>
         <button
@@ -107,7 +110,7 @@ export function ExportDialog({ name, oemPath, oemNote, onClose }: Props) {
           className={controls.button}
           onClick={() => {
             navigator.clipboard
-              .writeText(PLUGIN(API_URL))
+              .writeText(PLUGIN(API_URL, suffix))
               .then(() => setCopy("done"))
               .catch(() => setCopy("failed"));
           }}

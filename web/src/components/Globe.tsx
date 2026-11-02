@@ -28,7 +28,7 @@ import {
 } from "cesium";
 import { useEffect, useRef, useState } from "react";
 
-import type { FlightDetail } from "@/lib/api";
+import { BASE_PATH, type FlightDetail } from "@/lib/api";
 import { fmtM } from "@/lib/format";
 import type { Mode } from "@/lib/flightView";
 import { modelAt, modelPath, realAt, realTrack, type GeoPoint } from "@/lib/geo";
@@ -105,7 +105,7 @@ export function Globe({ detail, mode, cursor, follow }: Props) {
   // One viewer for the life of the component.
   useEffect(() => {
     if (!container.current) return;
-    window.CESIUM_BASE_URL = "/cesium";
+    window.CESIUM_BASE_URL = `${BASE_PATH}/cesium`;
     if (ION_TOKEN) Ion.defaultAccessToken = ION_TOKEN;
     let viewer: Viewer;
     try {

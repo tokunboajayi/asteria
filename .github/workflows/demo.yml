@@ -1,0 +1,74 @@
+name: Demo (GitHub Pages)
+
+# The public demo: the rocket console as static files. Every artifact is rebuilt here
+# from the pinned RocketPy source and hash-verified; nothing is uploaded by hand.
+# Orbits are not included (Space-Track's user agreement forbids redistribution).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      - name: Engine
+        working-directory: engine
+        run: uv sync --frozen
+      - name: Pinned RocketPy source
+        working-directory: engine
+        run: uv run asteria fetch
+      - name: Launch-day weather (ERA5, CC-BY 4.0, bundled in data/era5)
+        run: mkdir -p .asteria/cache/era5 && cp data/era5/*.nc .asteria/cache/era5/
+      - name: Build rocket artifacts from source
+        working-directory: engine
+        run: uv run asteria build --jobs 4
+      - name: Verify source pin and artifact hashes
+        working-directory: engine
+        run: uv run asteria verify
+      - name: Export the API as files
+        working-directory: engine
+        run: uv run asteria export-static --out ../web/public/data
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Console
+        working-directory: web
+        run: npm ci
+      - name: Static site
+        working-directory: web
+        env:
+          STATIC_EXPORT: "1"
+          NEXT_PUBLIC_STATIC_API: "1"
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_API_URL: /${{ github.event.repository.name }}/data
+        run: npx next build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

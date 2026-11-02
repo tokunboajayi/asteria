@@ -25,7 +25,7 @@ import {
 } from "cesium";
 import { useEffect, useRef, useState } from "react";
 
-import type { GapSeries, GeoPoint, ObjectEphemeris } from "@/lib/api";
+import { BASE_PATH, type GapSeries, type GeoPoint, type ObjectEphemeris } from "@/lib/api";
 
 import styles from "./GlobeView.module.css";
 
@@ -89,7 +89,7 @@ export function OrbitGlobe({ name, series, ephemeris, epochIndex, errorScale, ca
 
   useEffect(() => {
     if (!container.current) return;
-    window.CESIUM_BASE_URL = "/cesium";
+    window.CESIUM_BASE_URL = `${BASE_PATH}/cesium`;
     if (ION_TOKEN) Ion.defaultAccessToken = ION_TOKEN;
     let viewer: Viewer;
     try {

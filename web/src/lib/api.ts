@@ -38,6 +38,15 @@ export type WeatherGhost = components["schemas"]["WeatherGhost"];
 export type OpenMctDictionary = components["schemas"]["OpenMctDictionary"];
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+/** Static demo: the API's GET responses exported as files (`asteria export-static`). */
+export const STATIC_API = process.env.NEXT_PUBLIC_STATIC_API === "1";
+/** Site path prefix when served below a domain root (e.g. GitHub Pages: /asteria). */
+export const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
+
+/** URL of an API path; in the static demo each path is a file with `ext` appended. */
+export function apiUrl(path: string, ext = ".json"): string {
+  return STATIC_API ? `${API_URL}${path}${ext}` : `${API_URL}${path}`;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -49,7 +58,7 @@ export class ApiError extends Error {
 }
 
 export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, { signal, cache: "no-store" });
+  const response = await fetch(apiUrl(path), { signal, cache: "no-store" });
   if (!response.ok) throw new ApiError(path, response.status);
   return (await response.json()) as T;
 }

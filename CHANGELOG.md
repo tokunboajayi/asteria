@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (2026-11-02)
+- **Live demo** on GitHub Pages: `asteria export-static` writes the rocket API as files
+  through the real API code; `demo.yml` rebuilds every artifact from the pinned source,
+  verifies hashes and deploys on each release. Orbits excluded (Space-Track terms).
+- ERA5 launch-day and control files bundled (CC-BY 4.0) so the demo builds without an account.
+- Dependencies: Next 16.4.3, React 19.3.1, FastAPI 0.162, netCDF4, Ruff, Actions v7;
+  @types/node pinned to the Node 22 runtime; TypeScript 7 and @types/node majors
+  ignored until the toolchain supports them.
+
 ## 0.2.1 (2026-11-02)
 - Launch-day weather result confirmed: control within 0.7 m; 98 m of
   Prometheus's 288 m apogee gap came from the notebook's wrong-year weather.

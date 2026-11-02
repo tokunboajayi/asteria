@@ -24,3 +24,5 @@ web/tsconfig.tsbuildinfo
 engine/.pytest_tmp/
 .overhaul/
 OVERHAUL_LEDGER.md
+web/public/data/
+web/out/

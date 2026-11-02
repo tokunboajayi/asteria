@@ -2,6 +2,12 @@
 
 [![CI](https://github.com/tokunboajayi/asteria/actions/workflows/ci.yml/badge.svg)](https://github.com/tokunboajayi/asteria/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Demo](https://img.shields.io/badge/demo-live-5fb4ff.svg)](https://tokunboajayi.github.io/asteria/)
+
+**Live demo: https://tokunboajayi.github.io/asteria/**. The rocket console, rebuilt
+from source and hash-verified by CI on every release. Storm Ghost (orbits) runs
+locally only: it needs your own Space-Track login, and Space-Track's agreement does
+not allow redistributing its data.
 
 **Mission control for the gap between prediction and reality.**
 
@@ -288,6 +294,18 @@ NEXT_PUBLIC_API_URL=https://api.your-domain ASTERIA_WEB_ORIGINS=https://your-dom
   belongs there.
 - CI builds both images on every push, starts the API image and checks that
   no settings file or local cache ended up inside either image.
+
+### Static demo
+
+```bash
+cd engine && uv run asteria export-static --out ../web/public/data && cd ../web
+STATIC_EXPORT=1 NEXT_PUBLIC_STATIC_API=1 NEXT_PUBLIC_BASE_PATH=/asteria \
+  NEXT_PUBLIC_API_URL=/asteria/data npx next build   # site in web/out
+```
+
+`export-static` writes every GET response the console uses through the real API code,
+and refuses if the artifacts fail verification. `.github/workflows/demo.yml` does all
+of this from a clean checkout on every `v*` tag and deploys to GitHub Pages.
 
 ## Commercial use
 

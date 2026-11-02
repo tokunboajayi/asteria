@@ -59,3 +59,14 @@ def test_ready_is_503_when_rocket_artifacts_do_not_load(
         h = client.get("/health")
         assert h.status_code == 200 and h.json()["ok"] is False and h.json()["detail"]
         assert client.get("/ready").status_code == 503
+
+
+def test_export_static_refuses_when_rocket_artifacts_do_not_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from asteria.export import static
+
+    monkeypatch.setenv("ASTERIA_ARTIFACTS", str(tmp_path / "missing"))
+    with pytest.raises(RuntimeError, match="did not load"):
+        static.export(tmp_path / "out")
+    assert not (tmp_path / "out" / "api" / "orbits").exists()

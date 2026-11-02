@@ -63,6 +63,13 @@ def _fetch_data() -> None:
         print("GRACE-FO: skipped (ESA_EO_USER not set)")
 
 
+def _export_static(out: Path) -> None:
+    from asteria.export.static import export
+
+    files = export(out)
+    print(f"static demo data: {len(files)} files in {out}")
+
+
 def _verify_dir(label: str, root: Path) -> int:
     """Re-hash one artifacts directory against its manifest; 1 if it fails, else 0."""
     try:
@@ -117,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("build-orbits", help="build Storm Ghost (needs a Space-Track login)")
     sub.add_parser("verify", help="re-check source commit and artifact hashes")
     sub.add_parser("fetch-data", help="download ERA5 and GRACE-FO data (free accounts)")
+    x = sub.add_parser("export-static", help="write the rocket API as files (public demo)")
+    x.add_argument("--out", type=Path, required=True)
     s = sub.add_parser("serve", help="run the API")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
@@ -129,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
         _build(args)
     elif args.command == "build-orbits":
         _build_orbits()
+    elif args.command == "export-static":
+        _export_static(args.out)
     elif args.command == "fetch-data":
         _fetch_data()
     elif args.command == "verify":
