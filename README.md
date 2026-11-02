@@ -111,6 +111,11 @@ ERA5 cached, the build re-flies the ghost changing only the weather date and
 file. Gate: the same pipeline on a fresh download of the notebook's own date
 must reproduce the notebook apogee within 1 m, or the build stops.
 
+Result: the control reproduced the notebook apogee to 0.7 m (4,190.6 vs
+4,191.3 m). On the real day's weather (2022-06-24, 15:00 UTC ERA5) the ghost
+peaks at 4,093 m instead of 4,191 m: **98 m of Prometheus's 288 m gap was the
+wrong year's weather**, not the rocket model.
+
 ### Optional data
 
 ```powershell

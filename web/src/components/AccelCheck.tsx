@@ -15,6 +15,7 @@ const LABEL = ["Main phase", "Recovery"];
 
 /** GRACE-FO 1 accelerometer: the independent check on the decay method and the model. */
 export function AccelCheck({ a }: { a: AccelDensity }) {
+  const withModel = a.checks.some((c) => c.model_ratio !== null);
   const ms = a.times.map((t) => Date.parse(t));
   const vals = [...(a.model_kg_m3 ?? []), ...a.measured_kg_m3.filter((v): v is number => v !== null)];
   const x = scale({ min: ms[0], max: ms[ms.length - 1] }, M.left, W - M.right);
@@ -39,7 +40,7 @@ export function AccelCheck({ a }: { a: AccelDensity }) {
             <th scope="col">Interval</th>
             <th scope="col">Accelerometer ×</th>
             <th scope="col">Orbit decay ×</th>
-            <th scope="col">Model ×</th>
+            {withModel && <th scope="col">Model ×</th>}
           </tr>
         </thead>
         <tbody>
@@ -50,7 +51,7 @@ export function AccelCheck({ a }: { a: AccelDensity }) {
               <td>
                 {c.decay_ratio !== null ? `${fmtNum(c.decay_ratio, 2)} ± ${fmtNum(c.decay_err ?? 0, 2)}` : "—"}
               </td>
-              <td>{c.model_ratio !== null ? fmtNum(c.model_ratio, 2) : "—"}</td>
+              {withModel && <td>{c.model_ratio !== null ? fmtNum(c.model_ratio, 2) : "—"}</td>}
             </tr>
           ))}
         </tbody>

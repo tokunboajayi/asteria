@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 (2026-11-02)
+- Launch-day weather result confirmed: control within 0.7 m; 98 m of
+  Prometheus's 288 m apogee gap came from the notebook's wrong-year weather.
+- Console hides model columns when no density model is configured.
+
 ## 0.2.0 (2026-10-30)
 
 ### Added

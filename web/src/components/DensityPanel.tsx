@@ -49,7 +49,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
         <td>
           {b?.measured_ratio != null ? `${fmtNum(b.measured_ratio, 2)} ± ${fmtNum(b.measured_err ?? 0, 2)}` : "—"}
         </td>
-        <td>{b?.model_ratio != null ? fmtNum(b.model_ratio, 2) : "—"}</td>
+        {d.model && <td>{b?.model_ratio != null ? fmtNum(b.model_ratio, 2) : "—"}</td>}
       </>
     );
   };
@@ -124,7 +124,7 @@ export function DensityPanel({ density, objects, selected }: Props) {
             <th scope="col">Object</th>
             <th scope="col">Alt km</th>
             <th scope="col">Main phase measured ×</th>
-            <th scope="col">Model ×</th>
+            {d.model && <th scope="col">Model ×</th>}
             <th scope="col">Last gap km (measured)</th>
           </tr>
         </thead>
